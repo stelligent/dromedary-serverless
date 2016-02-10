@@ -1,0 +1,101 @@
+{
+  "AWSTemplateFormatVersion":"2010-09-09",
+  "Description":"Master dromedary stack that calls nested stacks",
+  "Parameters":{
+    "BaseTemplateURL":{
+      "Type":"String",
+      "Description":"S3 Base URL of all the CloudFormation templated used in Dromedary (without the file names)"
+    },
+    "CodePipelineTemplateURL":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"codepipeline-cfn.json"
+    },
+    "CodePipelineActionsTemplateURL":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"codepipeline-custom-actions.json"
+    },
+    "IAMTemplateURL":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"iam.json"
+    },
+    "DDBTemplateURL":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"dynamodb.json"
+    },
+    "DDBTableName":{
+      "Type":"String",
+      "Description":"Unique name for the Dromedary Dynamo DB table"
+    },
+    "DromedaryRepo":{
+      "Type":"String",
+      "Description":"The Github https address to the public dromedary repository.",
+      "Default":"https://github.com/stelligent/dromedary.git"
+    },
+    "Branch":{
+      "Type":"String",
+      "Description":"The Github branch the public dromedary repository.",
+      "Default":"master"
+    }
+  },
+  "Resources":{
+    "DynamoDBStack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL":{
+          "Fn::Join":[
+            "",
+            [
+              {
+                "Ref":"BaseTemplateURL"
+              },
+              {
+                "Ref":"DDBTemplateURL"
+              }
+            ]
+          ]
+        },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "DDBTableName":{
+            "Ref":"DDBTableName"
+          }
+        }
+      }
+    },
+    "IAMStack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL":{
+          "Fn::Join":[
+            "",
+            [
+              {
+                "Ref":"BaseTemplateURL"
+              },
+              {
+                "Ref":"IAMTemplateURL"
+              }
+            ]
+          ]
+        },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "DDBTableName":{
+            "Ref":"DDBTableName"
+          }
+        }
+      }
+    }
+  },
+  "Outputs":{
+    "StackName":{
+      "Value":{
+        "Ref":"AWS::StackName"
+      }
+    }
+  }
+}

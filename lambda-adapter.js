@@ -113,7 +113,7 @@ var adapter = function( event, context ) {
             context.fail(err);
         } else {
             var contentType = res.getHeader('content-type');
-            var payload = res.output[1].toString('utf8');
+            var payload = res.output[1].toString('base64');
 
             context.succeed({payload: payload, contentType: contentType});
         }
