@@ -1,8 +1,6 @@
 # Overview
 This project deploys [dromedary](https://github.com/stelligent/dromedary) in AWS Lambda with API Gateway as the interface.  It also demonstrates the use of CodePipeline to continuously deliver changes made in the source code.
 
-A dependency exists to dromedary, and requires dromedary be linked by running `npm link` inside the dromedary directory.
-
 # Deploy
 To provision the AWS resources and deploy the app, just run `gulp launch`
 

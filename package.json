@@ -49,6 +49,6 @@
     "yargs": "^3.19.0"
   },
   "dependencies": {
-    "dromedary": "file:/usr/local/lib/node_modules/dromedary"
+    "dromedary": "stelligent/dromedary#master"
   }
 }
