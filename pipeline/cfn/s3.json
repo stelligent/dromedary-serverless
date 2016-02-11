@@ -1,0 +1,59 @@
+{
+  "AWSTemplateFormatVersion":"2010-09-09",
+  "Description":"Dromedary demo - s3 buckets for each stage",
+  "Parameters":{
+    "BucketPrefix":{
+      "Type":"String",
+      "Description":"The prefix to use for stage bucket names for static content"
+    }
+  },
+  "Resources" : {
+    "AcptBucket" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "AccessControl" : "PublicRead",
+        "BucketName" : {"Fn::Join":[ "", [ { "Ref":"BucketPrefix" }, "-acpt"] ]},
+        "WebsiteConfiguration" : {
+          "IndexDocument" : "index.html"
+        }
+      }
+    },
+    "ExpBucket" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "AccessControl" : "PublicRead",
+        "BucketName" : {"Fn::Join":[ "", [ { "Ref":"BucketPrefix" }, "-exp"] ]},
+        "WebsiteConfiguration" : {
+          "IndexDocument" : "index.html"
+        }
+      }
+    },
+    "ProdBucket" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "AccessControl" : "PublicRead",
+        "BucketName" : {"Fn::Join":[ "", [ { "Ref":"BucketPrefix" }, "-prod"] ]},
+        "WebsiteConfiguration" : {
+          "IndexDocument" : "index.html"
+        }
+      }
+    }
+  },
+  "Outputs" : {
+    "StackName":{
+      "Value":{ "Ref":"AWS::StackName" }
+    },
+    "AcptURL" : {
+      "Value" : { "Fn::GetAtt" : [ "AcptBucket", "WebsiteURL" ] },
+      "Description" : "Acceptance URL"
+    },
+    "ExpURL" : {
+      "Value" : { "Fn::GetAtt" : [ "ExpBucket", "WebsiteURL" ] },
+      "Description" : "Exploratory URL"
+    },
+    "ProdURL" : {
+      "Value" : { "Fn::GetAtt" : [ "ProdBucket", "WebsiteURL" ] },
+      "Description" : "Production URL"
+    }
+  }
+}

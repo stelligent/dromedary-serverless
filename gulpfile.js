@@ -7,11 +7,15 @@ var jshint      = require('gulp-jshint');
 var awsLambda = require("node-aws-lambda");
 var AWS         = require('aws-sdk');
 var fs          = require('fs');
+var mime        = require('mime');
+
 
 var pipelineConfig = {
     stackName: 'dromedary-serverless',
     region: 'us-west-2',
-    cfnBucket: 'dromedary-serverless-templates'
+    cfnBucket: 'dromedary-serverless-templates',
+    bucketPrefix: 'dromedary',
+    ddbTableName: 'dromedary-serverless'
 };
 
 var s3             = new AWS.S3();
@@ -36,23 +40,69 @@ gulp.task('node-mods', function() {
         .pipe(install({production: true}));
 });
 
-gulp.task('zip', function() {
+gulp.task('zipLambda', ['js','node-mods'], function() {
     return gulp.src(['!dist/package.json','!**/aws-sdk{,/**}','dist/**/*'])
         .pipe(zip('dist.zip'))
         .pipe(gulp.dest('./'));
 });
 
-gulp.task('upload', function(callback) {
+gulp.task('uploadLambda',['zipLambda'], function(callback) {
     awsLambda.deploy('./dist.zip', require("./lambda-config.js"), callback);
+});
+
+gulp.task('s3empty:acpt', function(cb) {
+    emptyBucket(pipelineConfig.bucketPrefix + '-acpt', cb);
+});
+gulp.task('s3empty:exp', function(cb) {
+    emptyBucket(pipelineConfig.bucketPrefix + '-exp', cb);
+});
+gulp.task('s3empty:prod', function(cb) {
+    emptyBucket(pipelineConfig.bucketPrefix + '-prod', cb);
+});
+
+gulp.task('s3:acpt', function(cb) {
+    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-acpt', cb);
+});
+gulp.task('s3:exp', function(cb) {
+    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-exp', cb);
+});
+gulp.task('s3:prod', function(cb) {
+    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-prod', cb);
 });
 
 gulp.task('deploy', function(cb) {
     return runSequence(
         ['clean'],
+        ['uploadLambda'],
+        cb
+    )
+});
+
+gulp.task('deploy:acpt', function(cb) {
+    return runSequence(
+        ['clean'],
+        ['zipLambda'],
+        ['pipeline:waitForComplete'],
+        ['s3:acpt'],
+        cb
+    )
+});
+gulp.task('deploy:exp', function(cb) {
+    return runSequence(
+        ['clean'],
+        ['zipLambda'],
+        ['pipeline:waitForComplete'],
+        ['s3:exp'],
+        cb
+    )
+});
+gulp.task('deploy:prod', function(cb) {
+    return runSequence(
+        ['clean'],
         ['js'],
         ['node-mods'],
-        ['zip'],
-        ['upload'],
+        ['pipeline:waitForComplete'],
+        ['s3:prod'],
         cb
     )
 });
@@ -85,27 +135,7 @@ gulp.task('pipeline:templatesBucket', function(cb) {
 });
 
 gulp.task('pipeline:templates',['pipeline:templatesBucket'], function(cb) {
-    var dir = 'pipeline/cfn';
-    var files = fs.readdirSync(dir);
-    var respCount = 0;
-    for (var i in files){
-        var path = dir + '/' + files[i];
-        var params = {
-            Bucket: pipelineConfig.cfnBucket,
-            Key: files[i],
-            Body: fs.readFileSync(path, "utf8")
-        }
-
-        s3.putObject(params, function(err, data) {
-            if (err) {
-                console.log(err, err.stack);
-            }
-
-            if(++respCount >= files.length) {
-                cb();
-            }
-        });
-    }
+    uploadToS3('pipeline/cfn',pipelineConfig.cfnBucket, cb);
 });
 
 gulp.task('pipeline:up',['pipeline:templates'],  function() {
@@ -129,11 +159,15 @@ gulp.task('pipeline:up',['pipeline:templates'],  function() {
             Parameters: [
                 {
                     ParameterKey: "DDBTableName",
-                    ParameterValue: "dromedary-serverless"
+                    ParameterValue: pipelineConfig.ddbTableName
                 },
                 {
                     ParameterKey: "BaseTemplateURL",
                     ParameterValue: s3BucketURL+"/"
+                },
+                {
+                    ParameterKey: "BucketPrefix",
+                    ParameterValue: pipelineConfig.bucketPrefix
                 },
             ],
             TemplateURL: s3BucketURL+"/dromedary-master.json"
@@ -149,7 +183,7 @@ gulp.task('pipeline:up',['pipeline:templates'],  function() {
     });
 });
 
-gulp.task('pipeline:down', function() {
+gulp.task('pipeline:down',['s3empty:acpt','s3empty:exp','s3empty:prod'], function() {
     return getStack(pipelineConfig.stackName, function(err) {
         if (err) { throw err; }
 
@@ -162,6 +196,27 @@ gulp.task('pipeline:down', function() {
     });
 });
 
+gulp.task('pipeline:waitForComplete', function(cb) {
+    var stackName = pipelineConfig.stackName;
+    var checkFunction = function() {
+        getStack(stackName, function(err,stack) {
+            if (err) {
+                throw err;
+            } else {
+                if(!stack || stack.StackStatus == 'CREATE_IN_PROGRESS' || stack.StackStatus == 'UPDATE_IN_PROGRESS' || stack.StackStatus == 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS') {
+                    console.log("      StackStatus = "+stack.StackStatus);
+                    setTimeout(checkFunction, 5000);
+                } else {
+                    console.log("Final StackStatus = "+stack.StackStatus);
+                    cb();
+                }
+            }
+        });
+    };
+
+    checkFunction();
+});
+
 gulp.task('pipeline:status', function() {
     var stackName = pipelineConfig.stackName;
     return getStack(stackName, function(err, stack) {
@@ -171,7 +226,12 @@ gulp.task('pipeline:status', function() {
         if (!stack) {
             return console.error('Stack does not exist: ' + stackName);
         }
-        console.log(stack.StackStatus);
+        console.log('Status: '+stack.StackStatus);
+        console.log('Outputs: ');
+        stack.Outputs.forEach(function (output) {
+            console.log('  '+output.OutputKey+' = '+output.OutputValue);
+        });
+        console.log('');
         console.log('Use gulp pipeline:log to view full event log');
         console.log('Use gulp pipeline:resources to view list of resources in the stack');
     });
@@ -232,15 +292,72 @@ gulp.task('pipeline:resources', function() {
 });
 
 function getStack(stackName, cb) {
-    cloudFormation.listStacks({}, function(err, data) {
+    cloudFormation.describeStacks({StackName: stackName}, function(err, data) {
         if (err) {
             return cb(err);
         }
-        for (var i=0; i<data.StackSummaries.length; i++) {
-            if (data.StackSummaries[i].StackName === stackName) {
-                return cb(null, data.StackSummaries[i]);
+        for (var i=0; i<data.Stacks.length; i++) {
+            if (data.Stacks[i].StackName === stackName) {
+                return cb(null, data.Stacks[i]);
             }
         }
         return cb();
     });
 }
+
+function emptyBucket(bucket,cb) {
+    s3.listObjects({Bucket: bucket}, function(err, data) {
+        if (err) {
+            cb(err);
+        } else {
+
+            var params = {
+                Bucket: bucket,
+                Delete: {
+                    Objects: data.Contents
+                }
+            };
+            s3.deleteObjects(params, function(err) {
+                if (err) {
+                    cb(err);
+                } else {
+                    cb();
+                }
+            });
+        }
+    });
+}
+function uploadToS3(dir,bucket,cb) {
+    var files = fs.readdirSync(dir);
+    var respCount = 0;
+    for (var i in files){
+        var path = dir + '/' + files[i];
+        if (!fs.statSync(path).isDirectory()) {
+            console.log("Uploading: "+ path);
+            var params = {
+                Bucket: bucket,
+                Key: files[i],
+                ACL: 'public-read',
+                ContentType: mime.lookup(path),
+                Body: fs.readFileSync(path)
+            }
+
+            s3.putObject(params, function(err, data) {
+                if (err) {
+                    console.log(err, err.stack);
+                }
+
+                if(++respCount >= files.length) {
+                    cb();
+                }
+            });
+        } else {
+            respCount++;
+        }
+    }
+
+    if(files.length==0) {
+        cb();
+    }
+}
+

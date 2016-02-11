@@ -21,6 +21,11 @@
       "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
       "Default":"iam.json"
     },
+    "S3TemplateURL":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"s3.json"
+    },
     "DDBTemplateURL":{
       "Type":"String",
       "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
@@ -29,6 +34,11 @@
     "DDBTableName":{
       "Type":"String",
       "Description":"Unique name for the Dromedary Dynamo DB table"
+    },
+    "BucketPrefix":{
+      "Type":"String",
+      "Description":"The prefix to use for stage bucket names for static content",
+      "Default":"dromedary"
     },
     "DromedaryRepo":{
       "Type":"String",
@@ -66,6 +76,30 @@
         }
       }
     },
+    "S3Stack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL":{
+          "Fn::Join":[
+            "",
+            [
+              {
+                "Ref":"BaseTemplateURL"
+              },
+              {
+                "Ref":"S3TemplateURL"
+              }
+            ]
+          ]
+        },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "BucketPrefix":{
+            "Ref":"BucketPrefix"
+          }
+        }
+      }
+    },
     "IAMStack":{
       "Type":"AWS::CloudFormation::Stack",
       "Properties":{
@@ -92,10 +126,20 @@
     }
   },
   "Outputs":{
-    "StackName":{
-      "Value":{
-        "Ref":"AWS::StackName"
-      }
+    "StackName": {
+      "Value": { "Ref": "AWS::StackName" }
+    },
+    "AcceptanceURL" : {
+      "Value" : { "Fn::GetAtt" : [ "S3Stack", "Outputs.AcptURL" ] } ,
+      "Description" : "Acceptance URL"
+    },
+    "ExploratoryURL" : {
+      "Value" : { "Fn::GetAtt" : [ "S3Stack", "Outputs.ExpURL" ] } ,
+      "Description" : "Exploratory URL"
+    },
+    "ProductionURL" : {
+      "Value" : { "Fn::GetAtt" : [ "S3Stack", "Outputs.ProdURL" ] } ,
+      "Description" : "Production URL"
     }
   }
 }
