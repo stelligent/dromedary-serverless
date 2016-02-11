@@ -4,7 +4,6 @@ var install     = require('gulp-install');
 var del         = require('del');
 var runSequence = require('run-sequence');
 var jshint      = require('gulp-jshint');
-var awsLambda = require("node-aws-lambda");
 var AWS         = require('aws-sdk');
 var fs          = require('fs');
 var mime        = require('mime');
@@ -15,13 +14,16 @@ var pipelineConfig = {
     region: 'us-west-2',
     cfnBucket: 'dromedary-serverless-templates',
     bucketPrefix: 'dromedary',
-    ddbTableName: 'dromedary-serverless'
+    ddbTableName: 'dromedary-serverless',
+    appFunctionName: 'DromedaryApi',
 };
+
 
 var s3             = new AWS.S3();
 
 AWS.config.region = pipelineConfig.region
 var cloudFormation = new AWS.CloudFormation();
+var lambda         = new AWS.Lambda();
 
 
 
@@ -29,83 +31,6 @@ gulp.task('clean', function(cb) {
     return del(['./dist', './dist.zip'],cb);
 });
 
-gulp.task('js', function() {
-    return gulp.src(['index.js','lambda-adapter.js'])
-        .pipe(gulp.dest('dist/'));
-});
-
-gulp.task('node-mods', function() {
-    return gulp.src('./package.json')
-        .pipe(gulp.dest('dist/'))
-        .pipe(install({production: true}));
-});
-
-gulp.task('zipLambda', ['js','node-mods'], function() {
-    return gulp.src(['!dist/package.json','!**/aws-sdk{,/**}','dist/**/*'])
-        .pipe(zip('dist.zip'))
-        .pipe(gulp.dest('./'));
-});
-
-gulp.task('uploadLambda',['zipLambda'], function(callback) {
-    awsLambda.deploy('./dist.zip', require("./lambda-config.js"), callback);
-});
-
-gulp.task('s3empty:acpt', function(cb) {
-    emptyBucket(pipelineConfig.bucketPrefix + '-acpt', cb);
-});
-gulp.task('s3empty:exp', function(cb) {
-    emptyBucket(pipelineConfig.bucketPrefix + '-exp', cb);
-});
-gulp.task('s3empty:prod', function(cb) {
-    emptyBucket(pipelineConfig.bucketPrefix + '-prod', cb);
-});
-
-gulp.task('s3:acpt', function(cb) {
-    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-acpt', cb);
-});
-gulp.task('s3:exp', function(cb) {
-    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-exp', cb);
-});
-gulp.task('s3:prod', function(cb) {
-    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-prod', cb);
-});
-
-gulp.task('deploy', function(cb) {
-    return runSequence(
-        ['clean'],
-        ['uploadLambda'],
-        cb
-    )
-});
-
-gulp.task('deploy:acpt', function(cb) {
-    return runSequence(
-        ['clean'],
-        ['zipLambda'],
-        ['pipeline:waitForComplete'],
-        ['s3:acpt'],
-        cb
-    )
-});
-gulp.task('deploy:exp', function(cb) {
-    return runSequence(
-        ['clean'],
-        ['zipLambda'],
-        ['pipeline:waitForComplete'],
-        ['s3:exp'],
-        cb
-    )
-});
-gulp.task('deploy:prod', function(cb) {
-    return runSequence(
-        ['clean'],
-        ['js'],
-        ['node-mods'],
-        ['pipeline:waitForComplete'],
-        ['s3:prod'],
-        cb
-    )
-});
 
 gulp.task('pipeline:templatesBucket', function(cb) {
     s3.headBucket({ Bucket: pipelineConfig.cfnBucket }, function(err, data) {
@@ -169,6 +94,10 @@ gulp.task('pipeline:up',['pipeline:templates'],  function() {
                     ParameterKey: "BucketPrefix",
                     ParameterValue: pipelineConfig.bucketPrefix
                 },
+                {
+                    ParameterKey: "AppFunctionName",
+                    ParameterValue: pipelineConfig.appFunctionName
+                },
             ],
             TemplateURL: s3BucketURL+"/dromedary-master.json"
         };
@@ -203,8 +132,8 @@ gulp.task('pipeline:waitForComplete', function(cb) {
             if (err) {
                 throw err;
             } else {
-                if(!stack || stack.StackStatus == 'CREATE_IN_PROGRESS' || stack.StackStatus == 'UPDATE_IN_PROGRESS' || stack.StackStatus == 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS') {
-                    console.log("      StackStatus = "+stack.StackStatus);
+                if(!stack || /_IN_PROGRESS$/.test(stack.StackStatus)) {
+                    console.log("      StackStatus = "+(stack!=null?stack.StackStatus:'NOT_FOUND'));
                     setTimeout(checkFunction, 5000);
                 } else {
                     console.log("Final StackStatus = "+stack.StackStatus);
@@ -291,10 +220,111 @@ gulp.task('pipeline:resources', function() {
     });
 });
 
+gulp.task('js', function() {
+    return gulp.src(['index.js','lambda-adapter.js'])
+        .pipe(gulp.dest('dist/'));
+});
+
+gulp.task('node-mods', function() {
+    return gulp.src('./package.json')
+        .pipe(gulp.dest('dist/'))
+        .pipe(install({production: true}));
+});
+
+gulp.task('zipLambda', ['js','node-mods'], function() {
+    return gulp.src(['!dist/package.json','!**/aws-sdk{,/**}','dist/**/*'])
+        .pipe(zip('dist.zip'))
+        .pipe(gulp.dest('./'));
+});
+
+gulp.task('uploadLambda',['zipLambda'], function(callback) {
+    getStack(pipelineConfig.stackName,function(err, stack) {
+        if(err) {
+            callback(err);
+        } else if(!stack) {
+            callback();
+        } else {
+            var appFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'AppLambdaArn'})[0].OutputValue;
+            var params = {
+                FunctionName: appFunctionArn,
+                Publish: true,
+                ZipFile: fs.readFileSync('./dist.zip')
+            };
+            lambda.updateFunctionCode(params, function(err, data) {
+                if (err) {
+                    callback(err);
+                } else {
+                    console.log("Updated lambda to version: "+data.Version);
+                    callback();
+                }
+            });
+
+        }
+    })
+});
+
+
+gulp.task('s3:acpt', function(cb) {
+    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-acpt', cb);
+});
+gulp.task('s3:exp', function(cb) {
+    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-exp', cb);
+});
+gulp.task('s3:prod', function(cb) {
+    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-prod', cb);
+});
+
+gulp.task('deploy', function(cb) {
+    return runSequence(
+        ['pipeline:up'],
+        ['deploy:acpt'],
+        cb
+    )
+});
+
+gulp.task('deploy:acpt', function(cb) {
+    return runSequence(
+        ['clean'],
+        ['pipeline:waitForComplete'],
+        ['uploadLambda'],
+        ['s3:acpt'],
+        cb
+    )
+});
+gulp.task('deploy:exp', function(cb) {
+    return runSequence(
+        ['clean'],
+        ['pipeline:waitForComplete'],
+        ['node-mods'],
+        ['s3:exp'],
+        cb
+    )
+});
+gulp.task('deploy:prod', function(cb) {
+    return runSequence(
+        ['clean'],
+        ['pipeline:waitForComplete'],
+        ['node-mods'],
+        ['s3:prod'],
+        cb
+    )
+});
+
+gulp.task('s3empty:acpt', function(cb) {
+    emptyBucket(pipelineConfig.bucketPrefix + '-acpt', cb);
+});
+gulp.task('s3empty:exp', function(cb) {
+    emptyBucket(pipelineConfig.bucketPrefix + '-exp', cb);
+});
+gulp.task('s3empty:prod', function(cb) {
+    emptyBucket(pipelineConfig.bucketPrefix + '-prod', cb);
+});
+
 function getStack(stackName, cb) {
     cloudFormation.describeStacks({StackName: stackName}, function(err, data) {
-        if (err) {
-            return cb(err);
+        if (err || data.Stacks == null) {
+            cb(null,null);
+            return;
         }
         for (var i=0; i<data.Stacks.length; i++) {
             if (data.Stacks[i].StackName === stackName) {
@@ -308,22 +338,28 @@ function getStack(stackName, cb) {
 function emptyBucket(bucket,cb) {
     s3.listObjects({Bucket: bucket}, function(err, data) {
         if (err) {
-            cb(err);
+            cb();
         } else {
 
+            var objects = data.Contents.map(function (c) { return { Key: c.Key }});
             var params = {
                 Bucket: bucket,
                 Delete: {
-                    Objects: data.Contents
+                    Objects: objects
                 }
             };
-            s3.deleteObjects(params, function(err) {
-                if (err) {
-                    cb(err);
-                } else {
-                    cb();
-                }
-            });
+
+            if(objects.length > 0) {
+                s3.deleteObjects(params, function(err) {
+                    if (err) {
+                        cb(err);
+                    } else {
+                        cb();
+                    }
+                });
+            } else {
+                cb();
+            }
         }
     });
 }

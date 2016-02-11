@@ -26,6 +26,16 @@
       "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
       "Default":"s3.json"
     },
+    "AppTemplateURL":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"app.json"
+    },
+    "AppFunctionName":{
+      "Type":"String",
+      "Description":"The name to use for the app lambda function.",
+      "Default":"DromedaryApi"
+    },
     "DDBTemplateURL":{
       "Type":"String",
       "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
@@ -72,6 +82,33 @@
         "Parameters":{
           "DDBTableName":{
             "Ref":"DDBTableName"
+          }
+        }
+      }
+    },
+    "AppStack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL":{
+          "Fn::Join":[
+            "",
+            [
+              {
+                "Ref":"BaseTemplateURL"
+              },
+              {
+                "Ref":"AppTemplateURL"
+              }
+            ]
+          ]
+        },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "AppFunctionName":{
+            "Ref":"AppFunctionName"
+          },
+          "AppRole":{
+            "Fn::GetAtt" : [ "IAMStack", "Outputs.AppLambdaRoleARN" ]
           }
         }
       }
@@ -128,6 +165,10 @@
   "Outputs":{
     "StackName": {
       "Value": { "Ref": "AWS::StackName" }
+    },
+    "AppLambdaArn"  : {
+      "Value" : { "Fn::GetAtt" : [ "AppStack", "Outputs.AppLambdaArn" ] } ,
+      "Description" : "App Lambda Arn"
     },
     "AcceptanceURL" : {
       "Value" : { "Fn::GetAtt" : [ "S3Stack", "Outputs.AcptURL" ] } ,
