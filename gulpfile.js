@@ -1,5 +1,7 @@
 var gulp        = require('gulp');
-var zip        = require('gulp-zip');
+var gcallback   = require('gulp-callback');
+var gutil       = require('gulp-util');
+var zip         = require('gulp-zip');
 var install     = require('gulp-install');
 var del         = require('del');
 var runSequence = require('run-sequence');
@@ -9,35 +11,77 @@ var fs          = require('fs');
 var mime        = require('mime');
 
 
+// configuration
 var pipelineConfig = {
-    stackName: 'dromedary-serverless',
-    region: 'us-west-2',
-    cfnBucket: 'dromedary-serverless-templates',
-    bucketPrefix: 'dromedary',
-    ddbTableName: 'dromedary-serverless',
-    appFunctionName: 'DromedaryApi',
+    stackName: (gutil.env.stackName || 'dromedary-serverless'),
+    region: (gutil.env.region || 'us-west-2')
 };
 
 
-var s3             = new AWS.S3();
-
+// AWS services
 AWS.config.region = pipelineConfig.region
+var s3             = new AWS.S3();
 var cloudFormation = new AWS.CloudFormation();
 var lambda         = new AWS.Lambda();
-
 
 
 gulp.task('clean', function(cb) {
     return del(['./dist', './dist.zip'],cb);
 });
 
+gulp.task('launch',['build','cfn:up'], function(cb) {
+    return runSequence(
+        ['cfn:wait'],
+        ['uploadLambda'],
+        ['uploadSite'],
+        ['uploadConfig'],
+        cb
+    )
+});
 
-gulp.task('pipeline:templatesBucket', function(cb) {
-    s3.headBucket({ Bucket: pipelineConfig.cfnBucket }, function(err, data) {
+gulp.task('teardown', function(cb) {
+    return runSequence(
+        ['emptySite'],
+        ['cfn:down'],
+        cb
+    )
+});
+
+
+gulp.task('js', function() {
+    return gulp.src(['index.js'])
+        .pipe(gulp.dest('dist/'));
+});
+
+gulp.task('node-mods', function() {
+    return gulp.src('./package.json')
+        .pipe(gulp.dest('dist/'))
+        .pipe(install({production: true}));
+});
+
+gulp.task('zip', ['js','node-mods'], function() {
+    return gulp.src(['!dist/package.json','!**/aws-sdk{,/**}','dist/**/*'])
+        .pipe(zip('dist.zip'))
+        .pipe(gulp.dest('./'));
+});
+
+gulp.task('build', function(cb) {
+    return runSequence(
+        ['clean'],
+        ['zip'],
+        cb
+    )
+});
+
+
+//CloudFormation tasks
+gulp.task('cfn:templatesBucket', function(cb) {
+    var cfnBucket = pipelineConfig.stackName+"-templates";
+    s3.headBucket({ Bucket: cfnBucket }, function(err, data) {
         if (err) {
             if(err.statusCode == 404) {
                 s3.createBucket({
-                    Bucket: pipelineConfig.cfnBucket,
+                    Bucket: cfnBucket,
                     CreateBucketConfiguration: {
                         LocationConstraint: pipelineConfig.region
                     }
@@ -45,7 +89,7 @@ gulp.task('pipeline:templatesBucket', function(cb) {
                     if (err) {
                         cb(err);
                     } else {
-                        console.log('Created bucket: '+pipelineConfig.cfnBucket);
+                        console.log('Created bucket: '+cfnBucket);
                         cb();
                     }
                 });
@@ -53,17 +97,45 @@ gulp.task('pipeline:templatesBucket', function(cb) {
                 cb(err);
             }
         } else {
-            console.log('Bucket already exists:'+ pipelineConfig.cfnBucket);
+            console.log('Bucket already exists:'+ cfnBucket);
             cb();
         }
     });
 });
 
-gulp.task('pipeline:templates',['pipeline:templatesBucket'], function(cb) {
-    uploadToS3('pipeline/cfn',pipelineConfig.cfnBucket, cb);
+gulp.task('cfn:templates',['cfn:templatesBucket'], function(cb) {
+    var cfnBucket = pipelineConfig.stackName+"-templates";
+    uploadToS3('pipeline/cfn',cfnBucket, cb);
+});
+gulp.task('cfn:customResources', ['cfn:templatesBucket'], function(cb) {
+    var lambdaModules = [
+        'cfn-api-gateway-restapi',
+        'cfn-api-gateway-resource',
+        'cfn-api-gateway-method',
+        'cfn-api-gateway-method-response',
+        'cfn-api-gateway-integration',
+        'cfn-api-gateway-integration-response',
+        'cfn-api-gateway-deployment'
+
+    ];
+    var cfnBucket = pipelineConfig.stackName+"-templates";
+
+    var complete = 0;
+    lambdaModules.forEach(function (moduleName) {
+        zipLambdaModule(moduleName, function(err,zipfile) {
+            if(err) {
+                cb(err);
+            } else {
+                if(++complete >= lambdaModules.length) {
+                    uploadToS3('./dist/lambdas/',cfnBucket, cb);
+                }
+            }
+        });
+    });
 });
 
-gulp.task('pipeline:up',['pipeline:templates'],  function() {
+
+gulp.task('cfn:up',['cfn:templates','cfn:customResources'],  function() {
     return getStack(pipelineConfig.stackName, function(err, stack) {
         var action, status = stack && stack.StackStatus;
         if (!status || status === 'DELETE_COMPLETE') {
@@ -76,7 +148,8 @@ gulp.task('pipeline:up',['pipeline:templates'],  function() {
 
 
         var s3Endpoint = (pipelineConfig.region=='us-east-1'?'https://s3.amazonaws.com':'https://s3-'+pipelineConfig.region+'.amazonaws.com');
-        var s3BucketURL = s3Endpoint+'/'+pipelineConfig.cfnBucket;
+        var cfnBucket = pipelineConfig.stackName+"-templates";
+        var s3BucketURL = s3Endpoint+'/'+cfnBucket;
 
         var params = {
             StackName: pipelineConfig.stackName,
@@ -84,19 +157,15 @@ gulp.task('pipeline:up',['pipeline:templates'],  function() {
             Parameters: [
                 {
                     ParameterKey: "DDBTableName",
-                    ParameterValue: pipelineConfig.ddbTableName
+                    ParameterValue: pipelineConfig.stackName+'-ddb'
                 },
                 {
-                    ParameterKey: "BaseTemplateURL",
-                    ParameterValue: s3BucketURL+"/"
+                    ParameterKey: "TemplateBucketName",
+                    ParameterValue: cfnBucket
                 },
                 {
-                    ParameterKey: "BucketPrefix",
-                    ParameterValue: pipelineConfig.bucketPrefix
-                },
-                {
-                    ParameterKey: "AppFunctionName",
-                    ParameterValue: pipelineConfig.appFunctionName
+                    ParameterKey: "SiteBucketName",
+                    ParameterValue: pipelineConfig.stackName+'-site'
                 },
             ],
             TemplateURL: s3BucketURL+"/dromedary-master.json"
@@ -107,12 +176,12 @@ gulp.task('pipeline:up',['pipeline:templates'],  function() {
                 throw err;
             }
             var a = action === 'createStack' ? 'creation' : 'update';
-            console.log('Stack ' + a + ' in progress. Run gulp pipeline:status to see current status.');
+            console.log('Stack ' + a + ' in progress. Run gulp cfn:status to see current status.');
         });
     });
 });
 
-gulp.task('pipeline:down',['s3empty:acpt','s3empty:exp','s3empty:prod'], function() {
+gulp.task('cfn:down',['emptySite'], function() {
     return getStack(pipelineConfig.stackName, function(err) {
         if (err) { throw err; }
 
@@ -125,7 +194,7 @@ gulp.task('pipeline:down',['s3empty:acpt','s3empty:exp','s3empty:prod'], functio
     });
 });
 
-gulp.task('pipeline:waitForComplete', function(cb) {
+gulp.task('cfn:wait', function(cb) {
     var stackName = pipelineConfig.stackName;
     var checkFunction = function() {
         getStack(stackName, function(err,stack) {
@@ -146,7 +215,7 @@ gulp.task('pipeline:waitForComplete', function(cb) {
     checkFunction();
 });
 
-gulp.task('pipeline:status', function() {
+gulp.task('cfn:status', function() {
     var stackName = pipelineConfig.stackName;
     return getStack(stackName, function(err, stack) {
         if (err) {
@@ -161,12 +230,12 @@ gulp.task('pipeline:status', function() {
             console.log('  '+output.OutputKey+' = '+output.OutputValue);
         });
         console.log('');
-        console.log('Use gulp pipeline:log to view full event log');
-        console.log('Use gulp pipeline:resources to view list of resources in the stack');
+        console.log('Use gulp cfn:log to view full event log');
+        console.log('Use gulp cfn:resources to view list of resources in the stack');
     });
 });
 
-gulp.task('pipeline:log', function() {
+gulp.task('cfn:log', function() {
     var stackName = pipelineConfig.stackName;
     return getStack(stackName, function(err, stack) {
         if (err) {
@@ -195,7 +264,8 @@ gulp.task('pipeline:log', function() {
     });
 });
 
-gulp.task('pipeline:resources', function() {
+
+gulp.task('cfn:resources', function() {
     var stackName = pipelineConfig.stackName;
     return getStack(stackName, function(err, stack) {
         if (err) {
@@ -220,24 +290,9 @@ gulp.task('pipeline:resources', function() {
     });
 });
 
-gulp.task('js', function() {
-    return gulp.src(['index.js','lambda-adapter.js'])
-        .pipe(gulp.dest('dist/'));
-});
-
-gulp.task('node-mods', function() {
-    return gulp.src('./package.json')
-        .pipe(gulp.dest('dist/'))
-        .pipe(install({production: true}));
-});
-
-gulp.task('zipLambda', ['js','node-mods'], function() {
-    return gulp.src(['!dist/package.json','!**/aws-sdk{,/**}','dist/**/*'])
-        .pipe(zip('dist.zip'))
-        .pipe(gulp.dest('./'));
-});
-
-gulp.task('uploadLambda',['zipLambda'], function(callback) {
+//Application upload tasks
+gulp.task('uploadLambda',['zip'], function(callback) {
+    var aliasName = 'prod';
     getStack(pipelineConfig.stackName,function(err, stack) {
         if(err) {
             callback(err);
@@ -255,7 +310,21 @@ gulp.task('uploadLambda',['zipLambda'], function(callback) {
                     callback(err);
                 } else {
                     console.log("Updated lambda to version: "+data.Version);
-                    callback();
+                    var aliasParams = {
+                        FunctionName: appFunctionArn,
+                        FunctionVersion: data.Version,
+                        Name: aliasName
+                    };
+                    lambda.deleteAlias({'FunctionName': appFunctionArn, Name: aliasName}, function() {
+                        lambda.createAlias(aliasParams, function (err, data) {
+                            if (err) {
+                                callback(err);
+                            } else {
+                                console.log("Tagged lambda version: " + aliasParams.FunctionVersion+ " as " + aliasName);
+                                callback();
+                            }
+                        });
+                    });
                 }
             });
 
@@ -263,63 +332,51 @@ gulp.task('uploadLambda',['zipLambda'], function(callback) {
     })
 });
 
+gulp.task('uploadSite', function(cb) {
+    uploadToS3('node_modules/dromedary/public', pipelineConfig.stackName+ '-site', cb);
+});
+gulp.task('uploadConfig', function(cb) {
+    getStack(pipelineConfig.stackName,function(err, stack) {
+        if (err) {
+            cb(err);
+        } else if (!stack) {
+            cb();
+        } else {
+            var apiUrl = stack.Outputs.filter(function (o) { return o.OutputKey == 'ApiURL' })[0].OutputValue;
+            var params = {
+                Bucket: pipelineConfig.stackName + '-site',
+                Key: 'config.js',
+                ACL: 'public-read',
+                ContentType: 'application/javascript',
+                Body: 'apiBaseurl = "' + apiUrl + '/";'
+            }
 
-gulp.task('s3:acpt', function(cb) {
-    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-acpt', cb);
-});
-gulp.task('s3:exp', function(cb) {
-    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-exp', cb);
-});
-gulp.task('s3:prod', function(cb) {
-    uploadToS3('node_modules/dromedary/public', pipelineConfig.bucketPrefix + '-prod', cb);
-});
-
-gulp.task('deploy', function(cb) {
-    return runSequence(
-        ['pipeline:up'],
-        ['deploy:acpt'],
-        cb
-    )
-});
-
-gulp.task('deploy:acpt', function(cb) {
-    return runSequence(
-        ['clean'],
-        ['pipeline:waitForComplete'],
-        ['uploadLambda'],
-        ['s3:acpt'],
-        cb
-    )
-});
-gulp.task('deploy:exp', function(cb) {
-    return runSequence(
-        ['clean'],
-        ['pipeline:waitForComplete'],
-        ['node-mods'],
-        ['s3:exp'],
-        cb
-    )
-});
-gulp.task('deploy:prod', function(cb) {
-    return runSequence(
-        ['clean'],
-        ['pipeline:waitForComplete'],
-        ['node-mods'],
-        ['s3:prod'],
-        cb
-    )
+            s3.putObject(params, function (err, data) {
+                if (err) {
+                    cb(err);
+                } else {
+                    cb();
+                }
+            });
+        }
+    });
 });
 
-gulp.task('s3empty:acpt', function(cb) {
-    emptyBucket(pipelineConfig.bucketPrefix + '-acpt', cb);
-});
-gulp.task('s3empty:exp', function(cb) {
-    emptyBucket(pipelineConfig.bucketPrefix + '-exp', cb);
-});
-gulp.task('s3empty:prod', function(cb) {
-    emptyBucket(pipelineConfig.bucketPrefix + '-prod', cb);
+gulp.task('emptySite', function(cb) {
+    emptyBucket(pipelineConfig.stackName+ '-site', cb);
 });
 
+
+
+function zipLambdaModule(moduleName, cb) {
+    var dist = './dist/lambdas/';
+    return gulp.src(['node_modules/'+moduleName+'/**/*','!node_modules/'+moduleName+'/package.json','!**/aws-sdk{,/**}'])
+        .pipe(zip(moduleName+'.zip'))
+        .pipe(gulp.dest(dist))
+        .pipe(gcallback(function() {
+            cb(null,dist+'/'+moduleName+'.zip');
+        }));
+}
 function getStack(stackName, cb) {
     cloudFormation.describeStacks({StackName: stackName}, function(err, data) {
         if (err || data.Stacks == null) {

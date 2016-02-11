@@ -1,19 +1,15 @@
 # Overview
 This project deploys [dromedary](https://github.com/stelligent/dromedary) in AWS Lambda with API Gateway as the interface.  It also demonstrates the use of CodePipeline to continuously deliver changes made in the source code.
 
-A dependency exists to dromedary, and requires dromedary be linked via `npm link`
+A dependency exists to dromedary, and requires dromedary be linked by running `npm link` inside the dromedary directory.
 
 # Deploy
-To provision the AWS resources and deploy the app, just run `gulp deploy`
+To provision the AWS resources and deploy the app, just run `gulp launch`
 
-# Pipeline
-To setup the pipeline, run `gulp pipeline:up`
+You can run `gulp cfn:wait` to wait for the stack to come up, and then `gulp cfn:status` to get the outputs, including the application URL.
 
-To view the status of the pipeline, run `gulp pipeline:status`
-
-To teardown the pipeline, run `gulp pipeline:down`
+To tear everything down, run `gulp teardown`
 
 # Todo
-* CFN for pipeline
-* SDK calls for api gateway
-* pipeline lambda to build, test, deploy new lambda, deploy static stuff to S3
+* Get PR approved: (https://github.com/andrew-templeton/cfn-api-gateway-integration-response/pull/2)
+* CFN for pipeline to build, test, deploy new lambda, deploy static stuff to S3

@@ -8,70 +8,6 @@
     }
   },
   "Resources":{
-    "CodePipelineTrustRole":{
-      "Type":"AWS::IAM::Role",
-      "Properties":{
-        "AssumeRolePolicyDocument":{
-          "Statement":[
-            {
-              "Sid":"1",
-              "Effect":"Allow",
-              "Principal":{
-                "Service":[
-                  "codepipeline.amazonaws.com"
-                ]
-              },
-              "Action":"sts:AssumeRole"
-            }
-          ]
-        },
-        "Path":"/",
-        "Policies":[
-          {
-            "PolicyName":"CodePipelinePolicy",
-            "PolicyDocument":{
-              "Version":"2012-10-17",
-              "Statement":[
-                {
-                  "Action":[
-                    "s3:GetObject",
-                    "s3:GetObjectVersion",
-                    "s3:GetBucketVersioning"
-                  ],
-                  "Resource":"*",
-                  "Effect":"Allow"
-                },
-                {
-                  "Action":[
-                    "s3:PutObject"
-                  ],
-                  "Resource":[
-                    "arn:aws:s3:::dromedary*"
-                  ],
-                  "Effect":"Allow"
-                },
-                {
-                  "Action":[
-                    "s3:*",
-                    "cloudformation:*"
-                  ],
-                  "Resource":"*",
-                  "Effect":"Allow"
-                },
-                {
-                  "Action":[
-                    "lambda:InvokeFunction",
-                    "lambda:ListFunctions"
-                  ],
-                  "Resource":"*",
-                  "Effect":"Allow"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
     "AppLambdaTrustRole":{
       "Type":"AWS::IAM::Role",
       "Properties":{
@@ -108,9 +44,16 @@
                     "dynamodb:UpdateItem"
                   ],
                   "Effect": "Allow",
-                  "Resource": [
-                    {"Fn::Join":[ "", [ "arn:aws:dynamodb:::table/", { "Ref":"DDBTableName" }] ]}
-                  ]
+                  "Resource": "*"
+                },
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
                 }
               ]
             }
@@ -125,16 +68,7 @@
         "Ref":"AWS::StackName"
       }
     },
-    "CodePipelineTrustRoleARN":{
-      "Description":"The ARN of the Code Pipeline Trust Role, which is needed to configure Code Pipeline",
-      "Value":{
-        "Fn::GetAtt":[
-          "CodePipelineTrustRole",
-          "Arn"
-        ]
-      }
-    },
-    "AppLambdaRoleARN":{
+    "AppLambdaRoleArn":{
       "Description":"The ARN of the Application Lambda Trust Role, which is needed to configure Lambda Function",
       "Value":{
         "Fn::GetAtt":[
