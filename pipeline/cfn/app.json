@@ -2,13 +2,14 @@
   "AWSTemplateFormatVersion":"2010-09-09",
   "Description":"Dromedary demo - lambda for the application",
   "Parameters":{
-    "AppFunctionName":{
-      "Type":"String",
-      "Description":"The name to use for the app lambda function."
-    },
     "AppRole":{
       "Type":"String",
       "Description":"The role for the function to run as."
+    },
+    "AppFunctionName":{
+      "Type":"String",
+      "Description":"The name to use for the app lambda function.",
+      "Default":"AppLambda"
     },
     "AppTimeout":{
       "Type":"Number",
