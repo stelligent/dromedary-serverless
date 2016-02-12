@@ -29,17 +29,17 @@ var lambda         = new AWS.Lambda();
 
 
 gulp.task('clean', function(cb) {
-    return del(['./dist', './dist.zip'],cb);
+    return del(['./dist'],cb);
 });
 
 gulp.task('launch', function(cb) {
     return runSequence(
         ['cfn:up'],
         ['cfn:wait'],
-        ['build'],
-        ['uploadLambda'],
-        ['uploadSite'],
-        ['uploadConfig'],
+        ['app:build'],
+        ['app:uploadLambda'],
+        ['app:uploadSite'],
+        ['app:uploadConfig'],
         cb
     )
 });
@@ -53,27 +53,27 @@ gulp.task('teardown', function(cb) {
 });
 
 
-gulp.task('js', function() {
-    return gulp.src(['index.js'])
-        .pipe(gulp.dest('dist/'));
+gulp.task('app:js', function() {
+    return gulp.src(['lambda/dromedary/index.js'])
+        .pipe(gulp.dest('dist/app/'));
 });
 
-gulp.task('node-mods', function() {
+gulp.task('app:node-mods', function() {
     return gulp.src('./package.json')
-        .pipe(gulp.dest('dist/'))
+        .pipe(gulp.dest('dist/app/'))
         .pipe(install({production: true}));
 });
 
-gulp.task('zip', ['js','node-mods'], function() {
-    return gulp.src(['!dist/package.json','!**/aws-sdk{,/**}','dist/**/*'])
-        .pipe(zip('dist.zip'))
-        .pipe(gulp.dest('./'));
+gulp.task('app:zip', ['app:js','app:node-mods'], function() {
+    return gulp.src(['!dist/app/package.json','!**/aws-sdk{,/**}','dist/app/**/*'])
+        .pipe(zip('app.zip'))
+        .pipe(gulp.dest('dist'));
 });
 
-gulp.task('build', function(cb) {
+gulp.task('app:build', function(cb) {
     return runSequence(
         ['clean'],
-        ['zip'],
+        ['app:zip'],
         cb
     )
 });
@@ -308,7 +308,7 @@ gulp.task('cfn:resources', function() {
 });
 
 //Application upload tasks
-gulp.task('uploadLambda', function(callback) {
+gulp.task('app:uploadLambda', function(callback) {
     var aliasName = 'prod';
     getStack(pipelineConfig.stackName,function(err, stack) {
         if(err) {
@@ -320,7 +320,7 @@ gulp.task('uploadLambda', function(callback) {
             var params = {
                 FunctionName: appFunctionArn,
                 Publish: true,
-                ZipFile: fs.readFileSync('./dist.zip')
+                ZipFile: fs.readFileSync('./dist/app.zip')
             };
             lambda.updateFunctionCode(params, function(err, data) {
                 if (err) {
@@ -349,10 +349,10 @@ gulp.task('uploadLambda', function(callback) {
     })
 });
 
-gulp.task('uploadSite', function(cb) {
+gulp.task('app:uploadSite', function(cb) {
     uploadToS3('node_modules/dromedary/public', pipelineConfig.stackName+ '-site', cb);
 });
-gulp.task('uploadConfig', function(cb) {
+gulp.task('app:uploadConfig', function(cb) {
     getStack(pipelineConfig.stackName,function(err, stack) {
         if (err) {
             cb(err);
