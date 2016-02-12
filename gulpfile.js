@@ -54,7 +54,7 @@ gulp.task('teardown', function(cb) {
 
 
 gulp.task('app:js', function() {
-    return gulp.src(['lambda/dromedary/index.js'])
+    return gulp.src(['app/lambda/index.js'])
         .pipe(gulp.dest('dist/app/'));
 });
 
@@ -111,7 +111,7 @@ gulp.task('cfn:templatesBucket', function(cb) {
 gulp.task('cfn:templates',['cfn:templatesBucket'], function(cb) {
     var cfnBucket = pipelineConfig.stackName+"-templates";
     var complete = 0;
-    var dirs = ['cfn/app','cfn/pipeline'];
+    var dirs = ['app/cfn','pipeline/cfn'];
     dirs.forEach(function(dir) {
         uploadToS3(dir,cfnBucket,function(err) {
             if(err) {
