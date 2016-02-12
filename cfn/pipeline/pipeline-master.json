@@ -4,16 +4,27 @@
   "Parameters":{
     "TemplateBucketName":{
       "Type":"String",
-      "Description":"S3 bucket name for all the CloudFormation templates used in Dromedary."
+      "Description":"S3 bucket name for all the CloudFormation templates used in the pipeline."
     },
-    "SiteBucketName":{
+    "GitHubToken":{
+      "NoEcho":"true",
       "Type":"String",
-      "Description":"The prefix to use for stage bucket names for static content",
-      "Default":"dromedary-stateless-site"
+      "Description":"Secret. It might look something like 9b189a1654643522561f7b3ebd44a1531a4287af OAuthToken with access to Repo. Go to https://github.com/settings/tokens"
     },
-    "DDBTableName":{
+    "GitHubUser":{
       "Type":"String",
-      "Description":"Unique name for the Dromedary Dynamo DB table"
+      "Description":"GitHub UserName",
+      "Default":"stelligent"
+    },
+    "GitHubRepo":{
+      "Type":"String",
+      "Description":"GitHub Repo to pull from. Only the Name. not the URL",
+      "Default":"dromedary"
+    },
+    "GitHubBranch":{
+      "Type":"String",
+      "Description":"Branch to use from Repo. Only the Name. not the URL",
+      "Default":"master"
     }
   },
   "Mappings" : {
@@ -32,61 +43,240 @@
       }
     }
   },
-  "Resources":{
-    "DynamoDBStack":{
-      "Type":"AWS::CloudFormation::Stack",
+  "Resources": {
+    "CodePipelineRole":{
+      "Type":"AWS::IAM::Role",
       "Properties":{
-        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "dynamodb.json"]] },
-        "TimeoutInMinutes":"60",
-        "Parameters":{
-          "DDBTableName":{
-            "Ref":"DDBTableName"
+        "AssumeRolePolicyDocument":{
+          "Statement":[
+            {
+              "Sid":"1",
+              "Effect":"Allow",
+              "Principal":{
+                "Service":[
+                  "codepipeline.amazonaws.com"
+                ]
+              },
+              "Action":"sts:AssumeRole"
+            }
+          ]
+        },
+        "Path":"/",
+        "Policies":[
+          {
+            "PolicyName":"CodePipelinePolicy",
+            "PolicyDocument":{
+              "Version":"2012-10-17",
+              "Statement":[
+                {
+                  "Action":[
+                    "s3:GetObject",
+                    "s3:GetObjectVersion",
+                    "s3:GetBucketVersioning"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                },
+                {
+                  "Action":[
+                    "s3:PutObject"
+                  ],
+                  "Resource":[
+                    "arn:aws:s3:::codepipeline*",
+                    "arn:aws:s3:::dromedary*",
+                    "arn:aws:s3:::elasticbeanstalk*"
+                  ],
+                  "Effect":"Allow"
+                },
+                {
+                  "Action":[
+                    "codedeploy:CreateDeployment",
+                    "codedeploy:GetApplicationRevision",
+                    "codedeploy:GetDeployment",
+                    "codedeploy:GetDeploymentConfig",
+                    "codedeploy:RegisterApplicationRevision"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                },
+                {
+                  "Action":[
+                    "elasticbeanstalk:*",
+                    "ec2:*",
+                    "elasticloadbalancing:*",
+                    "autoscaling:*",
+                    "cloudwatch:*",
+                    "s3:*",
+                    "sns:*",
+                    "cloudformation:*",
+                    "rds:*",
+                    "sqs:*",
+                    "ecs:*",
+                    "iam:PassRole"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                },
+                {
+                  "Action":[
+                    "lambda:InvokeFunction",
+                    "lambda:ListFunctions"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                }
+              ]
+            }
           }
-        }
+        ]
       }
     },
-    "ApiGatewayStack":{
-      "Type":"AWS::CloudFormation::Stack",
-      "Properties":{
-        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "api-gateway.json"]] },
-        "TimeoutInMinutes":"60",
-        "Parameters":{
-          "BucketName":{ "Ref":"TemplateBucketName" },
-          "DDBTableName":{ "Ref": "DDBTableName" },
-          "AppLambdaArn":{ "Fn::GetAtt" : [ "AppStack", "Outputs.AppLambdaArn" ] }
-        }
-      }
-    },
-    "AppStack":{
-      "Type":"AWS::CloudFormation::Stack",
-      "Properties":{
-        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "app.json"]] },
-        "TimeoutInMinutes":"60",
-        "Parameters":{
-          "AppRole":{
-            "Fn::GetAtt" : [ "IAMStack", "Outputs.AppLambdaRoleArn" ]
+    "CodePipelineLambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "LambdaPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:*"
+                  ],
+                  "Resource": [
+                    "arn:aws:logs:*:*:*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "codepipeline:PutJobSuccessResult",
+                    "codepipeline:PutJobFailureResult"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                }
+              ]
+            }
           }
-        }
+        ]
       }
     },
-    "S3Stack":{
-      "Type":"AWS::CloudFormation::Stack",
+    "CodePipelineLambdaTest":{
+      "Type":"AWS::Lambda::Function",
+      "DependsOn":[
+        "CodePipelineLambdaRole"
+      ],
       "Properties":{
-        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "s3.json"]] },
-        "TimeoutInMinutes":"60",
-        "Parameters":{
-          "SiteBucketName":{ "Ref":"SiteBucketName" } }
+        "Code" : {
+          "ZipFile":  { "Fn::Join": ["\n", [
+            "exports.handler = function(event, context) {",
+            "    context.fail(new Error(500));",
+            "};"
+          ]]}
+        },
+        "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
+        "Description":"Validate a website URL",
+        "Timeout":20,
+        "Handler":"validateurl.handler",
+        "Runtime":"nodejs",
+        "MemorySize":128
       }
     },
-    "IAMStack":{
-      "Type":"AWS::CloudFormation::Stack",
-      "Properties":{
-        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "iam.json"]] },
-        "TimeoutInMinutes":"60",
-        "Parameters":{
-          "DDBTableName":{
-            "Ref":"DDBTableName"
+    "ArtifactBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+      }
+    },
+    "DromedaryPipeline": {
+      "Type": "AWS::CodePipeline::Pipeline",
+      "DependsOn": [
+        "CodePipelineRole",
+        "CodePipelineLambdaTest"
+      ],
+      "Properties": {
+        "DisableInboundStageTransitions": [ ],
+        "RoleArn": { "Fn::GetAtt": [ "CodePipelineRole", "Arn" ] },
+        "Stages": [
+          {
+            "Name": "Commit",
+            "Actions": [
+              {
+                "InputArtifacts":[ ],
+                "Name":"Source",
+                "ActionTypeId":{
+                  "Category":"Source",
+                  "Owner":"ThirdParty",
+                  "Version":"1",
+                  "Provider":"GitHub"
+                },
+                "Configuration":{
+                  "Owner":{ "Ref":"GitHubUser" },
+                  "Repo":{ "Ref":"GitHubRepo" },
+                  "Branch":{ "Ref":"GitHubBranch" },
+                  "OAuthToken":{ "Ref":"GitHubToken" }
+                },
+                "OutputArtifacts": [
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "RunOrder": 1
+              }
+            ]
+          },
+          {
+            "Name": "Acceptance",
+            "Actions": [
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"Launch",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambdaTest"
+                  },
+                  "UserParameters":"http://google.com"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 1
+              }
+            ]
           }
+        ],
+        "ArtifactStore": {
+          "Type": "S3",
+          "Location": { "Ref": "ArtifactBucket" }
         }
       }
     }
@@ -95,17 +285,8 @@
     "StackName": {
       "Value": { "Ref": "AWS::StackName" }
     },
-    "AppLambdaArn"  : {
-      "Value" : { "Fn::GetAtt" : [ "AppStack", "Outputs.AppLambdaArn" ] } ,
-      "Description" : "App Lambda Arn"
-    },
-    "ApiURL" : {
-      "Value" : { "Fn::GetAtt" : [ "ApiGatewayStack", "Outputs.ApiURL" ] } ,
-      "Description" : "Api URL"
-    },
-    "SiteURL" : {
-      "Value" : { "Fn::GetAtt" : [ "S3Stack", "Outputs.SiteURL" ] } ,
-      "Description" : "Site URL"
+    "ArtifactBucket": {
+      "Value": { "Ref": "ArtifactBucket" }
     }
   }
 }

@@ -16,6 +16,7 @@ var moment      = require('moment');
 // configuration
 var pipelineConfig = {
     stackName: (gutil.env.stackName || 'dromedary-serverless'),
+    githubBranch: 'config-api-baseurl',
     region: (gutil.env.region || 'us-west-2')
 };
 
@@ -109,7 +110,19 @@ gulp.task('cfn:templatesBucket', function(cb) {
 
 gulp.task('cfn:templates',['cfn:templatesBucket'], function(cb) {
     var cfnBucket = pipelineConfig.stackName+"-templates";
-    uploadToS3('pipeline/cfn',cfnBucket, cb);
+    var complete = 0;
+    var dirs = ['cfn/app','cfn/pipeline'];
+    dirs.forEach(function(dir) {
+        uploadToS3(dir,cfnBucket,function(err) {
+            if(err) {
+                cb(err);
+            } else {
+                if (++complete >= dirs.length) {
+                    cb();
+                }
+            }
+        });
+    });
 });
 gulp.task('cfn:customResources', ['cfn:templatesBucket'], function(cb) {
     var lambdaModules = [
@@ -383,6 +396,148 @@ gulp.task('emptySite', function(cb) {
     emptyBucket(pipelineConfig.stackName+ '-site', cb);
 });
 
+gulp.task('pipeline:up',['cfn:templates','cfn:customResources'],  function() {
+    var stackName = pipelineConfig.stackName+'-pipeline';
+    return getStack(stackName, function(err, stack) {
+        var action, status = stack && stack.StackStatus;
+        if (!status || status === 'DELETE_COMPLETE') {
+            action = 'createStack';
+        } else if (status.match(/(CREATE|UPDATE)_COMPLETE/)) {
+            action = 'updateStack';
+        } else {
+            return console.error('Stack "' + stackName + '" is currently in ' + status + ' status and can not be deployed.');
+        }
+
+
+        var s3Endpoint = (pipelineConfig.region=='us-east-1'?'https://s3.amazonaws.com':'https://s3-'+pipelineConfig.region+'.amazonaws.com');
+        var cfnBucket = pipelineConfig.stackName+"-templates";
+        var s3BucketURL = s3Endpoint+'/'+cfnBucket;
+
+        if(!process.env.GITHUB_TOKEN) {
+            console.error("You must provide your GitHub token as environment variable 'GITHUB_TOKEN'");
+            process.exit(1);
+        }
+
+        var params = {
+            StackName: stackName,
+            Capabilities: ['CAPABILITY_IAM'],
+            Parameters: [
+                {
+                    ParameterKey: "GitHubUser",
+                    ParameterValue: "stelligent"
+                },
+                {
+                    ParameterKey: "GitHubToken",
+                    ParameterValue: process.env.GITHUB_TOKEN,
+                },
+                {
+                    ParameterKey: "GitHubRepo",
+                    ParameterValue: "dromedary"
+                },
+                {
+                    ParameterKey: "GitHubBranch",
+                    ParameterValue: pipelineConfig.githubBranch
+                },
+                {
+                    ParameterKey: "TemplateBucketName",
+                    ParameterValue: cfnBucket
+                }
+            ],
+            TemplateURL: s3BucketURL+"/pipeline-master.json"
+        };
+
+        cloudFormation[action](params, function(err) {
+            if (err) {
+                throw err;
+            }
+            var a = action === 'createStack' ? 'creation' : 'update';
+            console.log('Stack ' + a + ' in progress.');
+        });
+    });
+});
+
+gulp.task('pipeline:down', function() {
+    var stackName = pipelineConfig.stackName+'-pipeline';
+    return getStack(stackName, function(err) {
+        if (err) { throw err; }
+
+        cloudFormation.deleteStack({StackName: stackName}, function(err) {
+            if (err) {
+                throw err;
+            }
+            console.log('Stack deletion in progress.');
+        });
+    });
+});
+
+gulp.task('pipeline:wait', function(cb) {
+    var stackName = pipelineConfig.stackName+'-pipeline';
+    var checkFunction = function() {
+        getStack(stackName, function(err,stack) {
+            if (err) {
+                throw err;
+            } else {
+                if(!stack || /_IN_PROGRESS$/.test(stack.StackStatus)) {
+                    console.log("      StackStatus = "+(stack!=null?stack.StackStatus:'NOT_FOUND'));
+                    setTimeout(checkFunction, 5000);
+                } else {
+                    console.log("Final StackStatus = "+stack.StackStatus);
+                    cb();
+                }
+            }
+        });
+    };
+
+    checkFunction();
+});
+
+gulp.task('pipeline:status', function() {
+    var stackName = pipelineConfig.stackName+"-pipeline";
+    return getStack(stackName, function(err, stack) {
+        if (err) {
+            throw err;
+        }
+        if (!stack) {
+            return console.error('Stack does not exist: ' + stackName);
+        }
+        console.log('Status: '+stack.StackStatus);
+        console.log('Outputs: ');
+        stack.Outputs.forEach(function (output) {
+            console.log('  '+output.OutputKey+' = '+output.OutputValue);
+        });
+        console.log('');
+        console.log('Use gulp pipeline:log to view full event log');
+    });
+});
+
+gulp.task('pipeline:log', function() {
+    var stackName = pipelineConfig.stackName+'-pipeline';
+    return getStack(stackName, function(err, stack) {
+        if (err) {
+            throw err;
+        }
+        if (!stack) {
+            return console.log('Stack does not exist: ' + stackName);
+        }
+        if (!stack.StackStatus.match(/(CREATE|UPDATE)_COMPLETE/)) {
+            cloudFormation.describeStackEvents({StackName: stackName}, function(err, data) {
+                if (!data) {
+                    console.log('No log info available for ' + stackName);
+                    return;
+                }
+                var events = data.StackEvents;
+                events.sort(function(a, b) {
+                    return new Date(a.Timestamp).getTime() - new Date(b.Timestamp).getTime();
+                });
+                events.forEach(function(event) {
+                    event.Timestamp = new Date(event.Timestamp).toLocaleString().replace(',', '');
+                    event.ResourceType = '[' + event.ResourceType + ']';
+                    console.log(event.Timestamp+' '+event.ResourceStatus+' '+event.LogicalResourceId+event.ResourceType+' '+event.ResourceStatusReason);
+                });
+            });
+        }
+    });
+});
 
 
 function zipLambdaModule(moduleName, cb) {
