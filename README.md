@@ -12,4 +12,7 @@ By default, the stack name will be **dromedary-serverless*.  You can change this
 
 # Todo
 * Get PR approved: (https://github.com/andrew-templeton/cfn-api-gateway-integration-response/pull/2)
-* CFN for pipeline to build, test, deploy new lambda, deploy static stuff to S3
+* CFN for pipeline to:
+** build - via a lambda that calls `gulp lint test`
+** deploy - via a lambda that runs the app CFNs
+** test - via a lmabda that calls `gulp test-functional`
