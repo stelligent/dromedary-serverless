@@ -9,6 +9,8 @@ var jshint      = require('gulp-jshint');
 var AWS         = require('aws-sdk');
 var fs          = require('fs');
 var mime        = require('mime');
+var git         = require('git-rev')
+var moment      = require('moment');
 
 
 // configuration
@@ -342,22 +344,35 @@ gulp.task('uploadConfig', function(cb) {
         } else if (!stack) {
             cb();
         } else {
-            var apiUrl = stack.Outputs.filter(function (o) { return o.OutputKey == 'ApiURL' })[0].OutputValue;
-            var params = {
-                Bucket: pipelineConfig.stackName + '-site',
-                Key: 'config.js',
-                ACL: 'public-read',
-                ContentType: 'application/javascript',
-                Body: 'apiBaseurl = "' + apiUrl + '/";'
-            }
-
-            s3.putObject(params, function (err, data) {
-                if (err) {
-                    cb(err);
-                } else {
-                    cb();
+            git.long(function (sha) {
+                if(sha == "") {
+                    // default to a timestamp
+                    sha = moment().format('YYYYMMDD-HHmmss');
                 }
-            });
+
+                var apiUrl = stack.Outputs.filter(function (o) { return o.OutputKey == 'ApiURL' })[0].OutputValue + '/';
+                var config = {
+                    apiBaseurl: apiUrl,
+                    version: sha
+                }
+
+                var params = {
+                    Bucket: pipelineConfig.stackName + '-site',
+                    Key: 'config.json',
+                    ACL: 'public-read',
+                    ContentType: 'application/javascript',
+                    Body: JSON.stringify(config)
+                }
+
+                s3.putObject(params, function (err, data) {
+                    if (err) {
+                        cb(err);
+                    } else {
+                        cb();
+                    }
+                });
+
+            })
         }
     });
 });

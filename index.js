@@ -118,7 +118,6 @@ exports.handler = function( event, context ) {
     };
 
     // setup and call dromedary
-    process.env.DROMEDARY_SHA = event['api-id'];
     process.env.AWS_DEFAULT_REGION = AWS.config.region;
     process.env.DROMEDARY_DDB_TABLE_NAME = event.ddbTableName;
     var dromedary = require('dromedary');
