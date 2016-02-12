@@ -182,23 +182,20 @@
         ]
       }
     },
-    "CodePipelineLambdaTest":{
+    "CodePipelineLambda":{
       "Type":"AWS::Lambda::Function",
       "DependsOn":[
         "CodePipelineLambdaRole"
       ],
       "Properties":{
         "Code" : {
-          "ZipFile":  { "Fn::Join": ["\n", [
-            "exports.handler = function(event, context) {",
-            "    context.fail(new Error(500));",
-            "};"
-          ]]}
+          "S3Bucket":{ "Ref": "TemplateBucketName" },
+          "S3Key": "pipeline-lambda.zip"
         },
         "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
-        "Description":"Validate a website URL",
+        "Description":"Run gulp tasks for pipeline",
         "Timeout":20,
-        "Handler":"validateurl.handler",
+        "Handler":"index.handler",
         "Runtime":"nodejs",
         "MemorySize":128
       }
@@ -212,7 +209,7 @@
       "Type": "AWS::CodePipeline::Pipeline",
       "DependsOn": [
         "CodePipelineRole",
-        "CodePipelineLambdaTest"
+        "CodePipelineLambda"
       ],
       "Properties": {
         "DisableInboundStageTransitions": [ ],
@@ -263,7 +260,7 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambdaTest"
+                    "Ref":"CodePipelineLambda"
                   },
                   "UserParameters":"http://google.com"
                 },

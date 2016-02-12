@@ -396,6 +396,42 @@ gulp.task('emptySite', function(cb) {
     emptyBucket(pipelineConfig.stackName+ '-site', cb);
 });
 
+gulp.task('pipeline:js', function() {
+    return gulp.src(['pipeline/lambda/index.js'])
+        .pipe(gulp.dest('dist/pipeline-lambda/'));
+});
+
+gulp.task('pipeline:node-mods', function() {
+    return gulp.src('./package.json')
+        .pipe(gulp.dest('dist/pipeline-lambda/'))
+        .pipe(install({production: false}));
+});
+
+gulp.task('pipeline:zip', ['pipeline:js','pipeline:node-mods'], function() {
+    return gulp.src(['!dist/pipeline-lambda/package.json','!**/aws-sdk{,/**}','dist/pipeline-lambda/**/*'])
+        .pipe(zip('pipeline-lambda.zip'))
+        .pipe(gulp.dest('dist'));
+});
+
+gulp.task('pipeline:uploadS3', ['pipeline:zip'], function(cb) {
+    var path = 'dist/pipeline-lambda.zip';
+    var params = {
+        Bucket: pipelineConfig.stackName+'-templates',
+        Key: 'pipeline-lambda.zip',
+        ACL: 'public-read',
+        ContentType: mime.lookup(path),
+        Body: fs.readFileSync(path)
+    }
+
+    s3.putObject(params, function(err, data) {
+        if (err) {
+            cb(err);
+        } else {
+            cb();
+        }
+    });
+});
+
 gulp.task('pipeline:up',['cfn:templates','cfn:customResources'],  function() {
     var stackName = pipelineConfig.stackName+'-pipeline';
     return getStack(stackName, function(err, stack) {
@@ -541,7 +577,7 @@ gulp.task('pipeline:log', function() {
 
 
 function zipLambdaModule(moduleName, cb) {
-    var dist = './dist/lambdas/';
+    var dist = './dist/lambdas';
     return gulp.src(['node_modules/'+moduleName+'/**/*','!node_modules/'+moduleName+'/package.json','!**/aws-sdk{,/**}'])
         .pipe(zip(moduleName+'.zip'))
         .pipe(gulp.dest(dist))
