@@ -332,7 +332,7 @@ gulp.task('uploadLambda',['zip'], function(callback) {
     })
 });
 
-gulp.task('uploadSite', function(cb) {
+gulp.task('uploadSite',['zip'], function(cb) {
     uploadToS3('node_modules/dromedary/public', pipelineConfig.stackName+ '-site', cb);
 });
 gulp.task('uploadConfig', function(cb) {

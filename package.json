@@ -49,6 +49,6 @@
     "yargs": "^3.19.0"
   },
   "dependencies": {
-    "dromedary": "stelligent/dromedary#master"
+    "dromedary": "stelligent/dromedary#config-api-baseurl"
   }
 }
