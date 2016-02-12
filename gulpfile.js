@@ -397,7 +397,7 @@ gulp.task('emptySite', function(cb) {
 });
 
 gulp.task('pipeline:js', function() {
-    return gulp.src(['pipeline/lambda/index.js'])
+    return gulp.src(['pipeline/lambda/index.js','gulpfile.js'])
         .pipe(gulp.dest('dist/pipeline-lambda/'));
 });
 
@@ -413,7 +413,7 @@ gulp.task('pipeline:zip', ['pipeline:js','pipeline:node-mods'], function() {
         .pipe(gulp.dest('dist'));
 });
 
-gulp.task('pipeline:uploadS3', ['pipeline:zip'], function(cb) {
+gulp.task('pipeline:uploadS3', ['pipeline:zip','cfn:templatesBucket'], function(cb) {
     var path = 'dist/pipeline-lambda.zip';
     var params = {
         Bucket: pipelineConfig.stackName+'-templates',
@@ -432,7 +432,7 @@ gulp.task('pipeline:uploadS3', ['pipeline:zip'], function(cb) {
     });
 });
 
-gulp.task('pipeline:up',['cfn:templates','cfn:customResources'],  function() {
+gulp.task('pipeline:up',['cfn:templates','cfn:customResources','pipeline:uploadS3'],  function() {
     var stackName = pipelineConfig.stackName+'-pipeline';
     return getStack(stackName, function(err, stack) {
         var action, status = stack && stack.StackStatus;
@@ -449,8 +449,8 @@ gulp.task('pipeline:up',['cfn:templates','cfn:customResources'],  function() {
         var cfnBucket = pipelineConfig.stackName+"-templates";
         var s3BucketURL = s3Endpoint+'/'+cfnBucket;
 
-        if(!process.env.GITHUB_TOKEN) {
-            console.error("You must provide your GitHub token as environment variable 'GITHUB_TOKEN'");
+        if(!gutil.env.token) {
+            console.error("You must provide your GitHub token with `--token=XXXX`");
             process.exit(1);
         }
 
@@ -464,7 +464,7 @@ gulp.task('pipeline:up',['cfn:templates','cfn:customResources'],  function() {
                 },
                 {
                     ParameterKey: "GitHubToken",
-                    ParameterValue: process.env.GITHUB_TOKEN,
+                    ParameterValue: gutil.env.token,
                 },
                 {
                     ParameterKey: "GitHubRepo",
@@ -492,7 +492,20 @@ gulp.task('pipeline:up',['cfn:templates','cfn:customResources'],  function() {
     });
 });
 
-gulp.task('pipeline:down', function() {
+gulp.task('pipeline:emptyArtifacts', function(callback) {
+    getStack(pipelineConfig.stackName+'-pipeline',function(err, stack) {
+        if (err) {
+            callback(err);
+        } else if (!stack) {
+            callback();
+        } else {
+            var artifactBucket = stack.Outputs.filter(function (o) { return o.OutputKey == 'ArtifactBucket' })[0].OutputValue;
+            emptyBucket(artifactBucket, callback);
+        }
+    });
+});
+
+gulp.task('pipeline:down', ['pipeline:emptyArtifacts'], function() {
     var stackName = pipelineConfig.stackName+'-pipeline';
     return getStack(stackName, function(err) {
         if (err) { throw err; }

@@ -216,22 +216,30 @@
         "RoleArn": { "Fn::GetAtt": [ "CodePipelineRole", "Arn" ] },
         "Stages": [
           {
-            "Name": "Commit",
+            "Name": "Source",
             "Actions": [
               {
-                "InputArtifacts":[ ],
-                "Name":"Source",
-                "ActionTypeId":{
-                  "Category":"Source",
-                  "Owner":"ThirdParty",
-                  "Version":"1",
-                  "Provider":"GitHub"
+                "InputArtifacts": [],
+                "Name": "Source",
+                "ActionTypeId": {
+                  "Category": "Source",
+                  "Owner": "ThirdParty",
+                  "Version": "1",
+                  "Provider": "GitHub"
                 },
-                "Configuration":{
-                  "Owner":{ "Ref":"GitHubUser" },
-                  "Repo":{ "Ref":"GitHubRepo" },
-                  "Branch":{ "Ref":"GitHubBranch" },
-                  "OAuthToken":{ "Ref":"GitHubToken" }
+                "Configuration": {
+                  "Owner": {
+                    "Ref": "GitHubUser"
+                  },
+                  "Repo": {
+                    "Ref": "GitHubRepo"
+                  },
+                  "Branch": {
+                    "Ref": "GitHubBranch"
+                  },
+                  "OAuthToken": {
+                    "Ref": "GitHubToken"
+                  }
                 },
                 "OutputArtifacts": [
                   {
@@ -239,6 +247,80 @@
                   }
                 ],
                 "RunOrder": 1
+              }
+            ]
+          },
+          {
+            "Name": "Commit",
+            "Actions": [
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"StaticAnalysis",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"app:staticAnalysis"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder":1
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"UnitTest",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"app:unitTest"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 1
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"Package",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"app:zip"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 2
               }
             ]
           },
@@ -262,7 +344,127 @@
                   "FunctionName":{
                     "Ref":"CodePipelineLambda"
                   },
-                  "UserParameters":"http://google.com"
+                  "UserParameters":"cfn:up"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 1
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"UploadLambda",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"app:uploadLambda"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 2
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"UploadSite",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"app:uploadSite"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 2
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"UploadConfig",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"app:uploadConfig"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 2
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"FunctionalTest",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"app:testFunctional"
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 3
+              }
+            ]
+          },
+          {
+            "Name": "Production",
+            "Actions": [
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceOutput"
+                  }
+                ],
+                "Name":"SwitchDNS",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineLambda"
+                  },
+                  "UserParameters":"cfn:updateDNS"
                 },
                 "OutputArtifacts": [
                 ],

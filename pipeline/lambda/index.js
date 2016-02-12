@@ -1,4 +1,7 @@
 var AWS  = require('aws-sdk');
+var gulp = require('gulp');
+var runSequence = require('run-sequence');
+require('./gulpfile.js');
 
 
 exports.handler = function( event, context ) {
@@ -10,7 +13,8 @@ exports.handler = function( event, context ) {
     var jobId = event["CodePipeline.job"].id;
 
     // Retrieve the value of UserParameters from the Lambda action configuration in AWS CodePipeline
-    var userParam = event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters;
+    var task = event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters;
+
 
     // Notify AWS CodePipeline of a successful job
     var putJobSuccess = function(message) {
@@ -36,12 +40,27 @@ exports.handler = function( event, context ) {
                 externalExecutionId: context.invokeid
             }
         };
+        console.error(JSON.stringify(message));
+
         codepipeline.putJobFailureResult(params, function(err, data) {
             context.fail(message);
         });
     };
 
-    putJobSuccess("Task passed.");
+    // run gulp
+    if (gulp.tasks[task]) {
+        console.log("Running gulp task: "+task);
+        runSequence(task,function(err) {
+            if(err) {
+                putJobFailure(err);
+            } else {
+                putJobSuccess("Task passed.");
+            }
+        });
+    } else {
+        putJobFailure("Missing gulp task: "+task);
+    }
+
 };
 
 
