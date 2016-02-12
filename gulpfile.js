@@ -31,9 +31,11 @@ gulp.task('clean', function(cb) {
     return del(['./dist', './dist.zip'],cb);
 });
 
-gulp.task('launch',['build','cfn:up'], function(cb) {
+gulp.task('launch', function(cb) {
     return runSequence(
+        ['cfn:up'],
         ['cfn:wait'],
+        ['build'],
         ['uploadLambda'],
         ['uploadSite'],
         ['uploadConfig'],
@@ -293,7 +295,7 @@ gulp.task('cfn:resources', function() {
 });
 
 //Application upload tasks
-gulp.task('uploadLambda',['zip'], function(callback) {
+gulp.task('uploadLambda', function(callback) {
     var aliasName = 'prod';
     getStack(pipelineConfig.stackName,function(err, stack) {
         if(err) {
@@ -334,7 +336,7 @@ gulp.task('uploadLambda',['zip'], function(callback) {
     })
 });
 
-gulp.task('uploadSite',['zip'], function(cb) {
+gulp.task('uploadSite', function(cb) {
     uploadToS3('node_modules/dromedary/public', pipelineConfig.stackName+ '-site', cb);
 });
 gulp.task('uploadConfig', function(cb) {
