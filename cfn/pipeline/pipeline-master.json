@@ -1,0 +1,111 @@
+{
+  "AWSTemplateFormatVersion":"2010-09-09",
+  "Description":"Master dromedary stack that calls nested stacks",
+  "Parameters":{
+    "TemplateBucketName":{
+      "Type":"String",
+      "Description":"S3 bucket name for all the CloudFormation templates used in Dromedary."
+    },
+    "SiteBucketName":{
+      "Type":"String",
+      "Description":"The prefix to use for stage bucket names for static content",
+      "Default":"dromedary-stateless-site"
+    },
+    "DDBTableName":{
+      "Type":"String",
+      "Description":"Unique name for the Dromedary Dynamo DB table"
+    }
+  },
+  "Mappings" : {
+    "EndpointMap" : {
+      "us-east-1": {
+        "s3": "https://s3.amazonaws.com"
+      },
+      "us-west-2": {
+        "s3": "https://s3-us-west-2.amazonaws.com"
+      },
+      "eu-west-1": {
+        "s3": "https://s3-eu-west-1.amazonaws.com"
+      },
+      "ap-northeast-1": {
+        "s3": "https://s3-ap-northeast-1.amazonaws.com"
+      }
+    }
+  },
+  "Resources":{
+    "DynamoDBStack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "dynamodb.json"]] },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "DDBTableName":{
+            "Ref":"DDBTableName"
+          }
+        }
+      }
+    },
+    "ApiGatewayStack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "api-gateway.json"]] },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "BucketName":{ "Ref":"TemplateBucketName" },
+          "DDBTableName":{ "Ref": "DDBTableName" },
+          "AppLambdaArn":{ "Fn::GetAtt" : [ "AppStack", "Outputs.AppLambdaArn" ] }
+        }
+      }
+    },
+    "AppStack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "app.json"]] },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "AppRole":{
+            "Fn::GetAtt" : [ "IAMStack", "Outputs.AppLambdaRoleArn" ]
+          }
+        }
+      }
+    },
+    "S3Stack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "s3.json"]] },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "SiteBucketName":{ "Ref":"SiteBucketName" } }
+      }
+    },
+    "IAMStack":{
+      "Type":"AWS::CloudFormation::Stack",
+      "Properties":{
+        "TemplateURL": { "Fn::Join": ["/", [{ "Fn::FindInMap":[ "EndpointMap", { "Ref":"AWS::Region" }, "s3" ] }, { "Ref":"TemplateBucketName"}, "iam.json"]] },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+          "DDBTableName":{
+            "Ref":"DDBTableName"
+          }
+        }
+      }
+    }
+  },
+  "Outputs":{
+    "StackName": {
+      "Value": { "Ref": "AWS::StackName" }
+    },
+    "AppLambdaArn"  : {
+      "Value" : { "Fn::GetAtt" : [ "AppStack", "Outputs.AppLambdaArn" ] } ,
+      "Description" : "App Lambda Arn"
+    },
+    "ApiURL" : {
+      "Value" : { "Fn::GetAtt" : [ "ApiGatewayStack", "Outputs.ApiURL" ] } ,
+      "Description" : "Api URL"
+    },
+    "SiteURL" : {
+      "Value" : { "Fn::GetAtt" : [ "S3Stack", "Outputs.SiteURL" ] } ,
+      "Description" : "Site URL"
+    }
+  }
+}

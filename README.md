@@ -8,6 +8,8 @@ You can run `gulp cfn:wait` to wait for the stack to come up, and then `gulp cfn
 
 To tear everything down, run `gulp teardown`
 
+By default, the stack name will be **dromedary-serverless*.  You can change this by passing `--stackName=my-stack-name` to any of the above gulp commands.
+
 # Todo
 * Get PR approved: (https://github.com/andrew-templeton/cfn-api-gateway-integration-response/pull/2)
 * CFN for pipeline to build, test, deploy new lambda, deploy static stuff to S3
