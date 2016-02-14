@@ -1,7 +1,12 @@
 # Overview
 This project deploys [dromedary](https://github.com/stelligent/dromedary) in AWS Lambda with API Gateway as the interface.  It also demonstrates the use of CodePipeline to continuously deliver changes made in the source code.
 
-# Deploy
+# Prerequisite
+You need Node.js installed.  If using a linux machine, you can run `sudo yum install nodejs npm --enablerepo=epel`, or for OS X, check out (nodejs.org)[https://nodejs.org/en/download/].
+
+You'll also want to have gulp installed: `npm install -g gulp`
+
+#Deploy
 Be sure to run `npm install` first to install all dependent modules.
 
 To provision the AWS resources and deploy the app, just run `gulp launch`
@@ -26,4 +31,5 @@ Bring the pipeline up with `gulp pipeline:up --token=XXXXXXXXXXXXXXXXX`
 
  * build - via a lambda that calls `gulp lint test`
  * deploy - via a lambda that runs the app CFNs
- * test - via a lmabda that calls `gulp test-functional`
+ * test - via a lambda that calls `gulp test-functional`
+ * production - via a lambda that calls `gulp` to update Route53
