@@ -49,6 +49,7 @@
     "yargs": "^3.19.0"
   },
   "dependencies": {
-    "dromedary": "stelligent/dromedary#config-api-baseurl"
+    "dromedary": "stelligent/dromedary#config-api-baseurl",
+    "unzip": "^0.1.11"
   }
 }

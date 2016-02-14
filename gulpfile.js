@@ -412,6 +412,31 @@ gulp.task('pipeline:zip', ['pipeline:js','pipeline:node-mods'], function() {
         .pipe(zip('pipeline-lambda.zip'))
         .pipe(gulp.dest('dist'));
 });
+gulp.task('pipeline:uploadLambda', ['pipeline:zip'], function(callback) {
+    getStack(pipelineConfig.stackName+'-pipeline',function(err, stack) {
+        if(err) {
+            callback(err);
+        } else if(!stack) {
+            callback();
+        } else {
+            var pipelineFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'CodePipelineLambdaArn'})[0].OutputValue;
+            var params = {
+                FunctionName: pipelineFunctionArn,
+                Publish: true,
+                ZipFile: fs.readFileSync('./dist/pipeline-lambda.zip')
+            };
+            lambda.updateFunctionCode(params, function(err, data) {
+                if (err) {
+                    callback(err);
+                } else {
+                    console.log("Updated lambda to version: "+data.Version);
+                    callback();
+                }
+            });
+
+        }
+    })
+});
 
 gulp.task('pipeline:uploadS3', ['pipeline:zip','cfn:templatesBucket'], function(cb) {
     var path = 'dist/pipeline-lambda.zip';

@@ -175,6 +175,16 @@
                   "Resource": [
                     "*"
                   ]
+                },
+                {
+                  "Action":[
+                    "s3:*",
+                    "lambda:*",
+                    "cloudformation:*",
+                    "iam:PassRole"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
                 }
               ]
             }
@@ -483,6 +493,10 @@
   "Outputs":{
     "StackName": {
       "Value": { "Ref": "AWS::StackName" }
+    },
+    "CodePipelineLambdaArn" : {
+      "Value" : { "Fn::GetAtt" : [ "CodePipelineLambda", "Arn" ] },
+      "Description" : "Lambda Arn"
     },
     "ArtifactBucket": {
       "Value": { "Ref": "ArtifactBucket" }
