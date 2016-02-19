@@ -12,8 +12,8 @@ var pipelineConfig = {
     stackName: (gutil.env.stackName || 'dromedary-serverless'),
     githubToken: gutil.env.token,
     githubUser: 'stelligent',
-    githubRepository: 'dromedary',
-    githubBranch: 'config-api-baseurl'
+    githubRepo: 'dromedary',
+    githubBranch: 'serverless'
 };
 
 gpipeline(gulp,pipelineConfig);
@@ -28,12 +28,6 @@ gulp.task('dist',['pipeline:lambda:zip'], function() {
         .pipe(zip('pipeline.zip'))
         .pipe(gulp.dest('dist'));
 });
-
-gulp.task('runAction',function(cb) {
-    var lambda = require('./lambda');
-    lambda.runAction(gutil.env.jobId,cb);
-});
-
 
 
 

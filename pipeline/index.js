@@ -42,20 +42,48 @@ module.exports = function ( gulp, opts ) {
             .pipe(gulp.dest('dist'));
     });
 
-    gulp.task(taskPrefix+':lambda:upload', [taskPrefix+':lambda:zip'], function(callback) {
+    gulp.task(taskPrefix+':lambda:upload', [taskPrefix+':lambda:gulpUpload', taskPrefix+':lambda:npmUpload']);
+
+    gulp.task(taskPrefix+':lambda:gulpUpload', [taskPrefix+':lambda:zip'], function(callback) {
         getStack(stackName,function(err, stack) {
             if(err) {
                 callback(err);
             } else if(!stack) {
                 callback();
             } else {
-                var pipelineFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'CodePipelineLambdaArn'})[0].OutputValue;
+                var pipelineFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'CodePipelineGulpLambdaArn'})[0].OutputValue;
                 var params = {
                     FunctionName: pipelineFunctionArn,
                     Publish: true,
                     ZipFile: fs.readFileSync('./dist/codepipeline-gulp.zip')
                 };
-                console.log("About to update function...");
+                console.log("About to update function..."+pipelineFunctionArn);
+                lambda.updateFunctionCode(params, function(err, data) {
+                    if (err) {
+                        callback(err);
+                    } else {
+                        console.log("Updated lambda to version: "+data.Version);
+                        callback();
+                    }
+                });
+
+            }
+        })
+    });
+    gulp.task(taskPrefix+':lambda:npmUpload', [taskPrefix+':lambda:zip'], function(callback) {
+        getStack(stackName,function(err, stack) {
+            if(err) {
+                callback(err);
+            } else if(!stack) {
+                callback();
+            } else {
+                var pipelineFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'CodePipelineNpmLambdaArn'})[0].OutputValue;
+                var params = {
+                    FunctionName: pipelineFunctionArn,
+                    Publish: true,
+                    ZipFile: fs.readFileSync('./dist/codepipeline-gulp.zip')
+                };
+                console.log("About to update function..."+pipelineFunctionArn);
                 lambda.updateFunctionCode(params, function(err, data) {
                     if (err) {
                         callback(err);
@@ -99,7 +127,7 @@ module.exports = function ( gulp, opts ) {
 
     gulp.task(taskPrefix+':templates',[taskPrefix+':templatesBucket'], function(cb) {
         var complete = 0;
-        var dirs = ['pipeline/cfn'];
+        var dirs = ['cfn'];
         dirs.forEach(function(dir) {
             uploadToS3(dir,cfnBucket,function(err) {
                 if(err) {
@@ -114,8 +142,8 @@ module.exports = function ( gulp, opts ) {
     });
 
 
-    gulp.task(taskPrefix+':uploadS3', [taskPrefix+':zip',taskPrefix+':templatesBucket'], function(cb) {
-        var path = 'dist/pipeline-lambda.zip';
+    gulp.task(taskPrefix+':lambda:uploadS3', [taskPrefix+':lambda:zip',taskPrefix+':templatesBucket'], function(cb) {
+        var path = 'dist/codepipeline-gulp.zip';
         var params = {
             Bucket: cfnBucket,
             Key: 'codepipeline-gulp.zip',
@@ -133,7 +161,7 @@ module.exports = function ( gulp, opts ) {
         });
     });
 
-    gulp.task(taskPrefix+':up',[taskPrefix+':templates',taskPrefix+':uploadS3'],  function() {
+    gulp.task(taskPrefix+':up',[taskPrefix+':templates',taskPrefix+':lambda:uploadS3'],  function() {
         return getStack(stackName, function(err, stack) {
             var action, status = stack && stack.StackStatus;
             if (!status || status === 'DELETE_COMPLETE') {
@@ -147,6 +175,7 @@ module.exports = function ( gulp, opts ) {
 
             var s3Endpoint = (opts.region=='us-east-1'?'https://s3.amazonaws.com':'https://s3-'+opts.region+'.amazonaws.com');
             var s3BucketURL = s3Endpoint+'/'+cfnBucket;
+
 
             var params = {
                 StackName: stackName,
@@ -169,12 +198,45 @@ module.exports = function ( gulp, opts ) {
                         ParameterValue: opts.githubBranch
                     },
                     {
+                        ParameterKey: "GulpStaticAnalysisTask",
+                        ParameterValue: opts.gulpStaticAnalysisTask
+                    },
+                    {
+                        ParameterKey: "GulpUnitTestTask",
+                        ParameterValue: opts.gulpUnitTestTask
+                    },
+                    {
+                        ParameterKey: "GulpLaunchTask",
+                        ParameterValue: opts.gulpLaunchTask
+                    },
+                    {
+                        ParameterKey: "GulpDeployAppTask",
+                        ParameterValue: opts.gulpDeployAppTask
+                    },
+                    {
+                        ParameterKey: "GulpDeploySiteTask",
+                        ParameterValue: opts.gulpDeploySiteTask
+                    },
+                    {
+                        ParameterKey: "GulpDeployConfigTask",
+                        ParameterValue: opts.gulpDeployConfigTask
+                    },
+                    {
+                        ParameterKey: "GulpFunctionalTestTask",
+                        ParameterValue: opts.gulpFunctionalTestTask
+                    },
+                    {
+                        ParameterKey: "GulpProductionDNSTask",
+                        ParameterValue: opts.gulpProductionDNSTask
+                    },
+                    {
                         ParameterKey: "TemplateBucketName",
                         ParameterValue: cfnBucket
                     }
                 ],
                 TemplateURL: s3BucketURL+"/pipeline-master.json"
             };
+            params.Parameters = params.Parameters.filter(function(p) { return p.ParameterValue; });
 
             cloudFormation[action](params, function(err) {
                 if (err) {

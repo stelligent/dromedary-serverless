@@ -25,6 +25,46 @@
       "Type":"String",
       "Description":"Branch to use from Repo. Only the Name. not the URL",
       "Default":"master"
+    },
+    "GulpStaticAnalysisTask":{
+      "Type":"String",
+      "Description":"Gulp task name for Static Analysis",
+      "Default":"lint"
+    },
+    "GulpUnitTestTask":{
+      "Type":"String",
+      "Description":"Gulp task name for Unit Testing",
+      "Default":"test"
+    },
+    "GulpLaunchTask":{
+      "Type":"String",
+      "Description":"Gulp task name for launching stack",
+      "Default":"cfn:up"
+    },
+    "GulpDeployAppTask":{
+      "Type":"String",
+      "Description":"Gulp task name for deploying application",
+      "Default":"app:uploadLambda"
+    },
+    "GulpDeploySiteTask": {
+      "Type": "String",
+      "Description": "Gulp task name for deploying application",
+      "Default": "app:uploadSite"
+    },
+    "GulpDeployConfigTask":{
+      "Type":"String",
+      "Description":"Gulp task name for deploying application",
+      "Default":"app:uploadConfig"
+    },
+    "GulpFunctionalTestTask": {
+      "Type": "String",
+      "Description": "Gulp task name for deploying application",
+      "Default": "test-functional"
+    },
+    "GulpProductionDNSTask":{
+      "Type":"String",
+      "Description":"Gulp task name for deploying application",
+      "Default":"cfn:updateDNS"
     }
   },
   "Mappings" : {
@@ -175,6 +215,7 @@
                   ],
                   "Resource": [
                     "*"
+
                   ]
                 },
                 {
@@ -193,7 +234,25 @@
         ]
       }
     },
-    "CodePipelineLambda":{
+    "CodePipelineNpmLambda":{
+      "Type":"AWS::Lambda::Function",
+      "DependsOn":[
+        "CodePipelineLambdaRole"
+      ],
+      "Properties":{
+        "Code" : {
+          "S3Bucket":{ "Ref": "TemplateBucketName" },
+          "S3Key": "codepipeline-gulp.zip"
+        },
+        "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
+        "Description":"Run NPM tasks for pipeline",
+        "Timeout":300,
+        "Handler":"index.npmHandler",
+        "Runtime":"nodejs",
+        "MemorySize":512
+      }
+    },
+    "CodePipelineGulpLambda":{
       "Type":"AWS::Lambda::Function",
       "DependsOn":[
         "CodePipelineLambdaRole"
@@ -206,7 +265,7 @@
         "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
         "Description":"Run gulp tasks for pipeline",
         "Timeout":300,
-        "Handler":"index.handler",
+        "Handler":"index.gulpHandler",
         "Runtime":"nodejs",
         "MemorySize":512
       }
@@ -220,7 +279,8 @@
       "Type": "AWS::CodePipeline::Pipeline",
       "DependsOn": [
         "CodePipelineRole",
-        "CodePipelineLambda"
+        "CodePipelineNpmLambda",
+        "CodePipelineGulpLambda"
       ],
       "Properties": {
         "DisableInboundStageTransitions": [ ],
@@ -270,6 +330,32 @@
                     "Name": "SourceOutput"
                   }
                 ],
+                "Name":"Dependencies",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineNpmLambda"
+                  },
+                  "UserParameters":"install"
+                },
+                "OutputArtifacts": [
+                  {
+                    "Name": "SourceInstalledOutput"
+                  }
+                ],
+                "RunOrder":1
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceInstalledOutput"
+                  }
+                ],
                 "Name":"StaticAnalysis",
                 "ActionTypeId":{
                   "Category":"Invoke",
@@ -279,18 +365,18 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"app:staticAnalysis"
+                  "UserParameters":{"Ref":"GulpStaticAnalysisTask"}
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder":1
+                "RunOrder":2
               },
               {
                 "InputArtifacts":[
                   {
-                    "Name": "SourceOutput"
+                    "Name": "SourceInstalledOutput"
                   }
                 ],
                 "Name":"UnitTest",
@@ -302,32 +388,9 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"app:unitTest"
-                },
-                "OutputArtifacts": [
-                ],
-                "RunOrder": 1
-              },
-              {
-                "InputArtifacts":[
-                  {
-                    "Name": "SourceOutput"
-                  }
-                ],
-                "Name":"Package",
-                "ActionTypeId":{
-                  "Category":"Invoke",
-                  "Owner":"AWS",
-                  "Version":"1",
-                  "Provider":"Lambda"
-                },
-                "Configuration":{
-                  "FunctionName":{
-                    "Ref":"CodePipelineLambda"
-                  },
-                  "UserParameters":"app:zip"
+                  "UserParameters":{"Ref":"GulpUnitTestTask"}
                 },
                 "OutputArtifacts": [
                 ],
@@ -341,7 +404,7 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "SourceOutput"
+                    "Name": "SourceInstalledOutput"
                   }
                 ],
                 "Name":"Launch",
@@ -353,9 +416,9 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"cfn:up"
+                  "UserParameters":{"Ref":"GulpLaunchTask"}
                 },
                 "OutputArtifacts": [
                 ],
@@ -364,7 +427,7 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "SourceOutput"
+                    "Name": "SourceInstalledOutput"
                   }
                 ],
                 "Name":"UploadLambda",
@@ -376,9 +439,9 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"app:uploadLambda"
+                  "UserParameters":{"Ref":"GulpDeployAppTask"}
                 },
                 "OutputArtifacts": [
                 ],
@@ -387,7 +450,7 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "SourceOutput"
+                    "Name": "SourceInstalledOutput"
                   }
                 ],
                 "Name":"UploadSite",
@@ -399,9 +462,9 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"app:uploadSite"
+                  "UserParameters":{"Ref":"GulpDeploySiteTask"}
                 },
                 "OutputArtifacts": [
                 ],
@@ -410,7 +473,7 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "SourceOutput"
+                    "Name": "SourceInstalledOutput"
                   }
                 ],
                 "Name":"UploadConfig",
@@ -422,9 +485,9 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"app:uploadConfig"
+                  "UserParameters":{"Ref":"GulpDeployConfigTask"}
                 },
                 "OutputArtifacts": [
                 ],
@@ -433,7 +496,7 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "SourceOutput"
+                    "Name": "SourceInstalledOutput"
                   }
                 ],
                 "Name":"FunctionalTest",
@@ -445,9 +508,9 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"app:testFunctional"
+                  "UserParameters":{"Ref":"GulpFunctionalTestTask"}
                 },
                 "OutputArtifacts": [
                 ],
@@ -461,7 +524,7 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "SourceOutput"
+                    "Name": "SourceInstalledOutput"
                   }
                 ],
                 "Name":"SwitchDNS",
@@ -473,9 +536,9 @@
                 },
                 "Configuration":{
                   "FunctionName":{
-                    "Ref":"CodePipelineLambda"
+                    "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":"cfn:updateDNS"
+                  "UserParameters":{"Ref":"GulpProductionDNSTask"}
                 },
                 "OutputArtifacts": [
                 ],
@@ -495,9 +558,13 @@
     "StackName": {
       "Value": { "Ref": "AWS::StackName" }
     },
-    "CodePipelineLambdaArn" : {
-      "Value" : { "Fn::GetAtt" : [ "CodePipelineLambda", "Arn" ] },
-      "Description" : "Lambda Arn"
+    "CodePipelineNpmLambdaArn" : {
+      "Value" : { "Fn::GetAtt" : [ "CodePipelineNpmLambda", "Arn" ] },
+      "Description" : "NPM Lambda Arn"
+    },
+    "CodePipelineGulpLambdaArn" : {
+      "Value" : { "Fn::GetAtt" : [ "CodePipelineGulpLambda", "Arn" ] },
+      "Description" : "Gulp Lambda Arn"
     },
     "ArtifactBucket": {
       "Value": { "Ref": "ArtifactBucket" }

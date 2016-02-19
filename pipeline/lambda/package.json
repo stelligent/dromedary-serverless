@@ -10,7 +10,9 @@
   "main": "index.js",
   "dependencies": {
     "adm-zip": "^0.4.7",
+    "archiver": "^0.21.0",
     "aws-sdk": "^2.2.36",
-    "npm": "^2.0"
+    "npm": "^2.0",
+    "promise": "^7.1.1"
   }
 }
