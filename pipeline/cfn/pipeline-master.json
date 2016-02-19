@@ -246,7 +246,7 @@
         },
         "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
         "Description":"Run NPM tasks for pipeline",
-        "Timeout":300,
+        "Timeout":600,
         "Handler":"index.npmHandler",
         "Runtime":"nodejs",
         "MemorySize":512
@@ -264,7 +264,7 @@
         },
         "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
         "Description":"Run gulp tasks for pipeline",
-        "Timeout":300,
+        "Timeout":600,
         "Handler":"index.gulpHandler",
         "Runtime":"nodejs",
         "MemorySize":512
