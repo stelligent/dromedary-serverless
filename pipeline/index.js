@@ -35,12 +35,8 @@ module.exports = function ( gulp, opts ) {
         return gulp.src('lambda/npm'+npmVersion+'/**')
             .pipe(gulp.dest('dist/lambda/node_modules/npm/'));
     });
-    gulp.task(taskPrefix+':lambda:npm_modules',[taskPrefix+':lambda:npm'], function() {
-        return gulp.src('dist/lambda/node_modules/npm/package.json')
-            .pipe(install({production: true}));
-    });
 
-    gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:install',taskPrefix+':lambda:npm_modules'], function() {
+    gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:install'], function() {
         return gulp.src(['!dist/lambda/package.json','!**/aws-sdk{,/**}','dist/lambda/**/*'])
             .pipe(zip('codepipeline-gulp.zip'))
             .pipe(gulp.dest('dist'));
