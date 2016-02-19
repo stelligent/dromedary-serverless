@@ -249,7 +249,7 @@
         "Timeout":300,
         "Handler":"index.npmHandler",
         "Runtime":"nodejs",
-        "MemorySize":512
+        "MemorySize":1024
       }
     },
     "CodePipelineGulpLambda":{
@@ -267,7 +267,7 @@
         "Timeout":300,
         "Handler":"index.gulpHandler",
         "Runtime":"nodejs",
-        "MemorySize":512
+        "MemorySize":1024
       }
     },
     "ArtifactBucket": {
