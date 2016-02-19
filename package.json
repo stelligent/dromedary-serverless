@@ -52,7 +52,7 @@
     "gulp-serverless-pipeline": "file:pipeline"
   },
   "dependencies": {
-    "dromedary": "https://github.com/stelligent/dromedary-serverless/archive/serverless.tar.gz",
+    "dromedary": "https://github.com/stelligent/dromedary/archive/serverless.tar.gz",
     "lambda-express": "file:app/lambda"
   }
 }
