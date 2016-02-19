@@ -36,7 +36,7 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
     gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:install'], function() {
-        return gulp.src(['!'+dist+'/lambda/package.json','!**/aws-sdk{,/**}',dist+'/lambda/**/*'])
+        return gulp.src(['!'+dist+'/lambda/package.json','!'+dist+'**/aws-sdk{,/**}',dist+'/lambda/**/*'])
             .pipe(zip('pipeline-lambda.zip'))
             .pipe(gulp.dest(dist));
     });

@@ -50,24 +50,23 @@ exports.registerTasks = function ( gulp, opts ) {
         return del([dist],{force: true}, cb);
     });
 
-    gulp.task(taskPrefix+':lambda:helperjs', function() {
-        return gulp.src(['app/lambda/index.js'])
-            .pipe(gulp.dest(dist+'/app/node_modules/app/lambda/'));
-    });
-
     gulp.task(taskPrefix+':lambda:js', function() {
         return gulp.src(appSource)
             .pipe(gulp.dest(dist+'/app/'));
     });
 
     gulp.task(taskPrefix+':lambda:installProd', function() {
-        return gulp.src('./package.json')
+        return gulp.src(['./package.json','./app{,/lambda/*}'])
             .pipe(gulp.dest(dist+'/app/'))
             .pipe(install({production: true}));
     });
 
-    gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:helperjs',taskPrefix+':lambda:installProd'], function() {
-        return gulp.src(['!'+dist+'/app/package.json','!**/aws-sdk{,/**}',dist+'/app/**/*'])
+    gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:installProd'], function() {
+        return gulp.src(['!'+dist+'/app/package.json',
+                         '!'+dist+'/**/aws-sdk{,/**}',
+                         '!'+dist+'/app/app',
+                         '!'+dist+'/app/pipeline',
+                         dist+'/app/**/*'])
             .pipe(zip('app.zip'))
             .pipe(gulp.dest(dist));
     });
