@@ -9,10 +9,13 @@
   },
   "main": "index.js",
   "dependencies": {
-    "adm-zip": "^0.4.7",
-    "archiver": "^0.21.0",
     "aws-sdk": "^2.2.36",
     "npm": "^2.0",
-    "promise": "^7.1.1"
+    "mkdirp": "^0.5.1",
+    "path": "^0.12.7",
+    "yauzl": "^2.4.1",
+    "promise": "^7.1.1",
+    "fstream": "^1.0.8",
+    "tar": "^2.2.1"
   }
 }

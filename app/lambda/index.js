@@ -95,7 +95,7 @@ function mapEvent( event){
     return request;
 }
 
-exports.handler = function( event, context ) {
+exports.toApp = function( event, context, app ) {
 
 
     var req = mapEvent(event);
@@ -117,11 +117,9 @@ exports.handler = function( event, context ) {
         }
     };
 
-    // setup and call dromedary
+    // setup and call express
     process.env.AWS_DEFAULT_REGION = AWS.config.region;
-    process.env.DROMEDARY_DDB_TABLE_NAME = event.ddbTableName;
-    var dromedary = require('dromedary');
-    dromedary.handle(req, res);
+    app.handle(req, res);
 };
 
 

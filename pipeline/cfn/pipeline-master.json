@@ -242,7 +242,7 @@
       "Properties":{
         "Code" : {
           "S3Bucket":{ "Ref": "TemplateBucketName" },
-          "S3Key": "codepipeline-gulp.zip"
+          "S3Key": "pipeline-lambda.zip"
         },
         "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
         "Description":"Run NPM tasks for pipeline",
@@ -260,7 +260,7 @@
       "Properties":{
         "Code" : {
           "S3Bucket":{ "Ref": "TemplateBucketName" },
-          "S3Key": "codepipeline-gulp.zip"
+          "S3Key": "pipeline-lambda.zip"
         },
         "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
         "Description":"Run gulp tasks for pipeline",

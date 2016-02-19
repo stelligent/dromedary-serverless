@@ -1,5 +1,5 @@
 {
-  "name": "pipeline",
+  "name": "gulp-serverless-pipeline",
   "version": "0.1.0",
   "description": "- Deploy dromedary to AWS Lambda",
   "main": "index.js",

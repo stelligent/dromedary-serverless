@@ -1,102 +1,132 @@
-'use strict'
-
+var gulp        = require('gulp');
+var gcallback   = require('gulp-callback');
 var zip         = require('gulp-zip');
+var unzip       = require('gulp-unzip');
+var install     = require('gulp-install');
 var del         = require('del');
+var runSequence = require('run-sequence');
 var AWS         = require('aws-sdk');
 var fs          = require('fs');
 var mime        = require('mime');
-var install     = require('gulp-install');
+var git         = require('git-rev')
+var moment      = require('moment');
 
 
 exports.registerTasks = function ( gulp, opts ) {
     // AWS services
     AWS.config.region = opts.region
-    var s3             = new AWS.S3();
+    var s3 = new AWS.S3();
     var cloudFormation = new AWS.CloudFormation();
-    var lambda         = new AWS.Lambda();
+    var lambda = new AWS.Lambda();
 
-    var stackName = opts.stackName || 'serverless-pipeline';
-    var cfnBucket = stackName+"-templates";
-    var taskPrefix = opts.taskPrefix || 'pipeline';
-    var dist       = (opts.dist || '/tmp/dist')+'/serverless-pipeline';
+    var stackName = opts.stackName || 'serverless-app';
+    var siteDirectory = opts.siteDirectory;
+    var appSource = opts.appSource;
+    var cfnBucket = opts.cfnBucket || stackName + "-templates";
+    var siteBucket = opts.siteBucket || stackName + "-site";
+    var taskPrefix = opts.taskPrefix || 'app';
+    var dist = (opts.dist || '/tmp/dist') + '/serverless-app';
+
+    gulp.task(taskPrefix+':launch', function(cb) {
+        return runSequence(
+            [taskPrefix+':up'],
+            [taskPrefix+':wait'],
+            [taskPrefix+':lambda:upload'],
+            [taskPrefix+':uploadSite'],
+            [taskPrefix+':uploadConfig'],
+            cb
+        )
+    });
+
+    gulp.task(taskPrefix+':teardown', function(cb) {
+        return runSequence(
+            [taskPrefix+':emptySite'],
+            [taskPrefix+':down'],
+            cb
+        )
+    });
 
     gulp.task(taskPrefix+':lambda:clean', function(cb) {
         return del([dist],{force: true}, cb);
     });
 
-    gulp.task(taskPrefix+':lambda:js', function() {
-        return gulp.src(['lambda/index.js'])
-            .pipe(gulp.dest(dist+'/lambda/'));
+    gulp.task(taskPrefix+':lambda:helperjs', function() {
+        return gulp.src(['app/lambda/index.js'])
+            .pipe(gulp.dest(dist+'/app/node_modules/app/lambda/'));
     });
 
-    gulp.task(taskPrefix+':lambda:install', function() {
-        return gulp.src('lambda/package.json')
-            .pipe(gulp.dest(dist+'/lambda/'))
+    gulp.task(taskPrefix+':lambda:js', function() {
+        return gulp.src(appSource)
+            .pipe(gulp.dest(dist+'/app/'));
+    });
+
+    gulp.task(taskPrefix+':lambda:installProd', function() {
+        return gulp.src('./package.json')
+            .pipe(gulp.dest(dist+'/app/'))
             .pipe(install({production: true}));
     });
 
-    gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:install'], function() {
-        return gulp.src(['!'+dist+'/lambda/package.json','!**/aws-sdk{,/**}',dist+'/lambda/**/*'])
-            .pipe(zip('pipeline-lambda.zip'))
+    gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:helperjs',taskPrefix+':lambda:installProd'], function() {
+        return gulp.src(['!'+dist+'/app/package.json','!**/aws-sdk{,/**}',dist+'/app/**/*'])
+            .pipe(zip('app.zip'))
             .pipe(gulp.dest(dist));
     });
 
-    gulp.task(taskPrefix+':lambda:upload', [taskPrefix+':lambda:gulpUpload', taskPrefix+':lambda:npmUpload']);
-
-    gulp.task(taskPrefix+':lambda:gulpUpload', [taskPrefix+':lambda:zip'], function(callback) {
-        getStack(stackName,function(err, stack) {
-            if(err) {
-                callback(err);
-            } else if(!stack) {
-                callback();
-            } else {
-                var pipelineFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'CodePipelineGulpLambdaArn'})[0].OutputValue;
-                var params = {
-                    FunctionName: pipelineFunctionArn,
-                    Publish: true,
-                    ZipFile: fs.readFileSync(dist+'/pipeline-lambda.zip')
-                };
-                console.log("About to update function..."+pipelineFunctionArn);
-                lambda.updateFunctionCode(params, function(err, data) {
-                    if (err) {
-                        callback(err);
-                    } else {
-                        console.log("Updated lambda to version: "+data.Version);
-                        callback();
-                    }
-                });
-
-            }
-        })
+    gulp.task(taskPrefix+':lambda:build', function(cb) {
+        return runSequence(
+            [taskPrefix+':lambda:clean'],
+            [taskPrefix+':lambda:zip'],
+            cb
+        )
     });
-    gulp.task(taskPrefix+':lambda:npmUpload', [taskPrefix+':lambda:zip'], function(callback) {
-        getStack(stackName,function(err, stack) {
-            if(err) {
-                callback(err);
-            } else if(!stack) {
-                callback();
-            } else {
-                var pipelineFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'CodePipelineNpmLambdaArn'})[0].OutputValue;
-                var params = {
-                    FunctionName: pipelineFunctionArn,
-                    Publish: true,
-                    ZipFile: fs.readFileSync(dist+'/pipeline-lambda.zip')
-                };
-                console.log("About to update function..."+pipelineFunctionArn);
-                lambda.updateFunctionCode(params, function(err, data) {
-                    if (err) {
-                        callback(err);
-                    } else {
-                        console.log("Updated lambda to version: "+data.Version);
-                        callback();
-                    }
-                });
-
-            }
-        })
+    gulp.task(taskPrefix+':emptySite', function(cb) {
+        emptyBucket(siteBucket, cb);
     });
 
-    // Tasks to provision the pipeline
+    gulp.task(taskPrefix+':uploadSite', function(cb) {
+        uploadToS3(siteDirectory, siteBucket, cb);
+    });
+    gulp.task(taskPrefix+':uploadConfig', function(cb) {
+        getStack(stackName,function(err, stack) {
+            if (err) {
+                cb(err);
+            } else if (!stack) {
+                cb();
+            } else {
+                git.long(function (sha) {
+                    if(sha == "") {
+                        // default to a timestamp
+                        sha = moment().format('YYYYMMDD-HHmmss');
+                    }
+
+                    var apiUrl = stack.Outputs.filter(function (o) { return o.OutputKey == 'ApiURL' })[0].OutputValue + '/';
+                    var config = {
+                        apiBaseurl: apiUrl,
+                        version: sha
+                    }
+
+                    var params = {
+                        Bucket: siteBucket,
+                        Key: 'config.json',
+                        ACL: 'public-read',
+                        ContentType: 'application/javascript',
+                        Body: JSON.stringify(config)
+                    }
+
+                    s3.putObject(params, function (err, data) {
+                        if (err) {
+                            cb(err);
+                        } else {
+                            cb();
+                        }
+                    });
+
+                })
+            }
+        });
+    });
+
+    //CloudFormation tasks
     gulp.task(taskPrefix+':templatesBucket', function(cb) {
         s3.headBucket({ Bucket: cfnBucket }, function(err, data) {
             if (err) {
@@ -126,7 +156,7 @@ exports.registerTasks = function ( gulp, opts ) {
 
     gulp.task(taskPrefix+':templates',[taskPrefix+':templatesBucket'], function(cb) {
         var complete = 0;
-        var dirs = ['cfn'];
+        var dirs = ['app/cfn','pipeline/cfn'];
         dirs.forEach(function(dir) {
             uploadToS3(dir,cfnBucket,function(err) {
                 if(err) {
@@ -139,28 +169,34 @@ exports.registerTasks = function ( gulp, opts ) {
             });
         });
     });
+    gulp.task(taskPrefix+':customResources', [taskPrefix+':templatesBucket'], function(cb) {
+        var lambdaModules = [
+            'cfn-api-gateway-restapi',
+            'cfn-api-gateway-resource',
+            'cfn-api-gateway-method',
+            'cfn-api-gateway-method-response',
+            'cfn-api-gateway-integration',
+            'cfn-api-gateway-integration-response',
+            'cfn-api-gateway-deployment'
 
+        ];
 
-    gulp.task(taskPrefix+':lambda:uploadS3', [taskPrefix+':lambda:zip',taskPrefix+':templatesBucket'], function(cb) {
-        var path = dist+'/pipeline-lambda.zip';
-        var params = {
-            Bucket: cfnBucket,
-            Key: 'pipeline-lambda.zip',
-            ACL: 'public-read',
-            ContentType: mime.lookup(path),
-            Body: fs.readFileSync(path)
-        }
-
-        s3.putObject(params, function(err, data) {
-            if (err) {
-                cb(err);
-            } else {
-                cb();
-            }
+        var complete = 0;
+        lambdaModules.forEach(function (moduleName) {
+            zipLambdaModule(moduleName, function(err,zipfile) {
+                if(err) {
+                    cb(err);
+                } else {
+                    if(++complete >= lambdaModules.length) {
+                        uploadToS3(dist+'/lambdas/',cfnBucket, cb);
+                    }
+                }
+            });
         });
     });
 
-    gulp.task(taskPrefix+':up',[taskPrefix+':templates',taskPrefix+':lambda:uploadS3'],  function() {
+
+    gulp.task(taskPrefix+':up',[taskPrefix+':templates',taskPrefix+':customResources'],  function() {
         return getStack(stackName, function(err, stack) {
             var action, status = stack && stack.StackStatus;
             if (!status || status === 'DELETE_COMPLETE') {
@@ -175,92 +211,37 @@ exports.registerTasks = function ( gulp, opts ) {
             var s3Endpoint = (opts.region=='us-east-1'?'https://s3.amazonaws.com':'https://s3-'+opts.region+'.amazonaws.com');
             var s3BucketURL = s3Endpoint+'/'+cfnBucket;
 
-
             var params = {
                 StackName: stackName,
                 Capabilities: ['CAPABILITY_IAM'],
                 Parameters: [
                     {
-                        ParameterKey: "GitHubUser",
-                        ParameterValue: opts.githubUser
-                    },
-                    {
-                        ParameterKey: "GitHubToken",
-                        ParameterValue: opts.githubToken
-                    },
-                    {
-                        ParameterKey: "GitHubRepo",
-                        ParameterValue: opts.githubRepo
-                    },
-                    {
-                        ParameterKey: "GitHubBranch",
-                        ParameterValue: opts.githubBranch
-                    },
-                    {
-                        ParameterKey: "GulpStaticAnalysisTask",
-                        ParameterValue: opts.gulpStaticAnalysisTask
-                    },
-                    {
-                        ParameterKey: "GulpUnitTestTask",
-                        ParameterValue: opts.gulpUnitTestTask
-                    },
-                    {
-                        ParameterKey: "GulpLaunchTask",
-                        ParameterValue: opts.gulpLaunchTask
-                    },
-                    {
-                        ParameterKey: "GulpDeployAppTask",
-                        ParameterValue: opts.gulpDeployAppTask
-                    },
-                    {
-                        ParameterKey: "GulpDeploySiteTask",
-                        ParameterValue: opts.gulpDeploySiteTask
-                    },
-                    {
-                        ParameterKey: "GulpDeployConfigTask",
-                        ParameterValue: opts.gulpDeployConfigTask
-                    },
-                    {
-                        ParameterKey: "GulpFunctionalTestTask",
-                        ParameterValue: opts.gulpFunctionalTestTask
-                    },
-                    {
-                        ParameterKey: "GulpProductionDNSTask",
-                        ParameterValue: opts.gulpProductionDNSTask
+                        ParameterKey: "DDBTableName",
+                        ParameterValue: stackName+'-ddb'
                     },
                     {
                         ParameterKey: "TemplateBucketName",
                         ParameterValue: cfnBucket
-                    }
+                    },
+                    {
+                        ParameterKey: "SiteBucketName",
+                        ParameterValue: siteBucket
+                    },
                 ],
-                TemplateURL: s3BucketURL+"/pipeline-master.json"
+                TemplateURL: s3BucketURL+"/main.json"
             };
-            params.Parameters = params.Parameters.filter(function(p) { return p.ParameterValue; });
 
             cloudFormation[action](params, function(err) {
                 if (err) {
                     throw err;
                 }
                 var a = action === 'createStack' ? 'creation' : 'update';
-                console.log('Stack ' + a + ' in progress.');
+                console.log('Stack ' + a + ' in progress. Run gulp '+taskPrefix+':status to see current status.');
             });
         });
     });
 
-    gulp.task(taskPrefix+':emptyArtifacts', function(callback) {
-        getStack(stackName,function(err, stack) {
-            if (err) {
-                callback(err);
-            } else if (!stack) {
-                callback();
-            } else {
-                var artifactBucket = stack.Outputs.filter(function (o) { return o.OutputKey == 'ArtifactBucket' })[0].OutputValue;
-                emptyBucket(artifactBucket, callback);
-            }
-        });
-    });
-
-    gulp.task(taskPrefix+':down', [taskPrefix+':emptyArtifacts'], function() {
+    gulp.task(taskPrefix+':down',[taskPrefix+':emptySite'], function() {
         return getStack(stackName, function(err) {
             if (err) { throw err; }
 
@@ -307,7 +288,8 @@ exports.registerTasks = function ( gulp, opts ) {
                 console.log('  '+output.OutputKey+' = '+output.OutputValue);
             });
             console.log('');
-            console.log('Use gulp pipeline:log to view full event log');
+            console.log('Use gulp '+taskPrefix+':log to view full event log');
+            console.log('Use gulp '+taskPrefix+':resources to view list of resources in the stack');
         });
     });
 
@@ -339,6 +321,81 @@ exports.registerTasks = function ( gulp, opts ) {
         });
     });
 
+
+    gulp.task(taskPrefix+':resources', function() {
+        return getStack(stackName, function(err, stack) {
+            if (err) {
+                throw err;
+            }
+            if (!stack) {
+                return console.error('Stack does not exist: ' + stackName);
+            }
+            cloudFormation.listStackResources({StackName: stackName}, function(err, data) {
+                if (!data) {
+                    console.log('No resources available for ' + stackName);
+                    return;
+                }
+                var resources = data.StackResourceSummaries;
+                resources.forEach(function(resource) {
+                    if (!resource.LogicalResourceId) {
+                        resource.LogicalResourceId = '(unknown)';
+                    }
+                    console.log('Type='+resource.ResourceType+' LogicalId='+resource.LogicalResourceId+' PhysicalId='+resource.PhysicalResourceId+' Status='+resource.ResourceStatus)
+                });
+            });
+        });
+    });
+
+    //Application upload tasks
+    gulp.task(taskPrefix+':lambda:upload', [taskPrefix+':lambda:build'], function(callback) {
+        var aliasName = 'prod';
+        getStack(stackName,function(err, stack) {
+            if(err) {
+                callback(err);
+            } else if(!stack) {
+                callback();
+            } else {
+                var appFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'AppLambdaArn'})[0].OutputValue;
+                var params = {
+                    FunctionName: appFunctionArn,
+                    Publish: true,
+                    ZipFile: fs.readFileSync(dist+'/app.zip')
+                };
+                lambda.updateFunctionCode(params, function(err, data) {
+                    if (err) {
+                        callback(err);
+                    } else {
+                        console.log("Updated lambda to version: "+data.Version);
+                        var aliasParams = {
+                            FunctionName: appFunctionArn,
+                            FunctionVersion: data.Version,
+                            Name: aliasName
+                        };
+                        lambda.deleteAlias({'FunctionName': appFunctionArn, Name: aliasName}, function() {
+                            lambda.createAlias(aliasParams, function (err, data) {
+                                if (err) {
+                                    callback(err);
+                                } else {
+                                    console.log("Tagged lambda version: " + aliasParams.FunctionVersion+ " as " + aliasName);
+                                    callback();
+                                }
+                            });
+                        });
+                    }
+                });
+
+            }
+        })
+    });
+
+    function zipLambdaModule(moduleName, cb) {
+        return gulp.src(['node_modules/'+moduleName+'/**/*','!node_modules/'+moduleName+'/package.json','!**/aws-sdk{,/**}'])
+            .pipe(zip(moduleName+'.zip'))
+            .pipe(gulp.dest(dist+'/lambdas'))
+            .pipe(gcallback(function() {
+                cb(null,dist+'/lambdas/'+moduleName+'.zip');
+            }));
+    }
     function getStack(stackName, cb) {
         cloudFormation.describeStacks({StackName: stackName}, function(err, data) {
             if (err || data.Stacks == null) {
@@ -415,10 +472,6 @@ exports.registerTasks = function ( gulp, opts ) {
             cb();
         }
     }
-
 };
-
-
-
 
 

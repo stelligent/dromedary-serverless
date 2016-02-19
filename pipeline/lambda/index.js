@@ -1,12 +1,24 @@
 'use strict'
 
-var fs   = require('fs');
-var AWS  = require('aws-sdk');
-var AdmZip = require('adm-zip');
-var archiver = require('archiver');
-var Promise = require('promise');
-var childProcess = require('child_process');
+var fs       = require('fs');
+var AWS      = require('aws-sdk');
 
+var yauzl  = require("yauzl");    // for .zip
+var mkdirp = require("mkdirp");   // for .zip
+var path   = require("path");     // for .zip
+
+var tar      = require('tar');     // for .tar.gz
+var zlib     = require('zlib');    // for .tar.gz
+var fstream  = require("fstream"); // for .tar.gz
+
+var childProcess = require('child_process'); // for exec
+
+var Promise  = require('promise'); // for sanity!
+
+
+if(!AWS.config.region) {
+    AWS.config.region = process.env.AWS_DEFAULT_REGION;
+}
 var codepipeline = new AWS.CodePipeline();
 var s3 = new AWS.S3({maxRetries: 10, signatureVersion: "v4"});
 
@@ -36,33 +48,38 @@ function doAction(actionFunction, event, context) {
 
 // handle promise by notifying code pipeline
 function handlePromise(promise, event, context) {
-    promise.then(function(message) {
-                var params = {
-                    jobId: event["CodePipeline.job"].id
-                };
-                codepipeline.putJobSuccessResult(params, function(err, data) {
-                    if(err) {
-                        context.fail(err);
-                    } else {
-                        context.succeed(message);
-                    }
-                });
-        }).catch( function(message) {
-            var params = {
-                jobId: event["CodePipeline.job"].id,
-                failureDetails: {
-                    message: JSON.stringify(message),
-                    type: 'JobFailed',
-                    externalExecutionId: context.invokeid
-                }
-            };
-            console.error(JSON.stringify(message));
+    promise
+    .then(function() {
+        console.log("Success!");
 
-            codepipeline.putJobFailureResult(params, function(err, data) {
-                context.fail(message);
-            });
-
+        var params = {
+            jobId: event["CodePipeline.job"].id
+        };
+        codepipeline.putJobSuccessResult(params, function(err, data) {
+            if(err) {
+                context.fail(err);
+            } else {
+                context.succeed("Action complete.");
+            }
         });
+    }).catch( function(message) {
+        var m = JSON.stringify(message);
+        console.error("Failure: "+m);
+
+        var params = {
+            jobId: event["CodePipeline.job"].id,
+            failureDetails: {
+                message: m,
+                type: 'JobFailed',
+                externalExecutionId: context.invokeid
+            }
+        };
+
+        codepipeline.putJobFailureResult(params, function(err, data) {
+            context.fail(m);
+        });
+
+    });
 
 };
 
@@ -75,10 +92,12 @@ function npmAction(jobDetails) {
     var artifactExtractPath = '/tmp/source/';
 
     var outArtifactName = 'SourceInstalledOutput';
-    var outArtifactZipPath = '/tmp/source_installed.zip';
+    var outArtifactTarballPath = '/tmp/source_installed.tar.gz';
 
     return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
         .then(function () {
+            return rmdir(artifactExtractPath);
+        }).then(function () {
             return extractZip(artifactZipPath, artifactExtractPath);
         }).then(function () {
             return installNpm(artifactExtractPath);
@@ -86,9 +105,9 @@ function npmAction(jobDetails) {
             var subcommand = jobDetails.data.actionConfiguration.configuration.UserParameters;
             return runNpm(artifactExtractPath, subcommand);
         }).then(function () {
-            return createZip(artifactExtractPath, outArtifactZipPath);
+            return packTarball(artifactExtractPath, outArtifactTarballPath);
         }).then(function () {
-            return uploadOutputArtifact(jobDetails, outArtifactName, outArtifactZipPath);
+            return uploadOutputArtifact(jobDetails, outArtifactName, outArtifactTarballPath);
         });
 }
 
@@ -98,12 +117,14 @@ function npmAction(jobDetails) {
 // return: promise
 function gulpAction(jobDetails) {
     var artifactName = 'SourceInstalledOutput';
-    var artifactZipPath = '/tmp/source_installed.zip';
+    var artifactZipPath = '/tmp/source_installed.tar.gz';
     var artifactExtractPath = '/tmp/source_installed/';
 
     return downloadInputArtifact(jobDetails, artifactName, artifactZipPath)
         .then(function () {
-            return extractZip(artifactZipPath, artifactExtractPath);
+            return rmdir(artifactExtractPath);
+        }).then(function () {
+            return extractTarball(artifactZipPath, artifactExtractPath);
         }).then(function () {
             return installNpm(artifactExtractPath);
         }).then(function () {
@@ -131,9 +152,9 @@ function getJobDetails(jobId) {
 //
 // return: promise
 function getS3Object(params, dest) {
-    console.log("Getting S3 Object '" + params.Bucket+"/"+params.Key + "' to '"+dest+"'");
-    var file = fs.createWriteStream(dest);
     return new Promise(function(resolve,reject) {
+        console.log("Getting S3 Object '" + params.Bucket+"/"+params.Key + "' to '"+dest+"'");
+        var file = fs.createWriteStream(dest);
         s3.getObject(params)
             .createReadStream()
             .on('error', reject)
@@ -147,9 +168,9 @@ function getS3Object(params, dest) {
 //
 // return: promise
 function putS3Object(params, path) {
-    console.log("Putting S3 Object '" + params.Bucket+"/"+params.Key + "' from '"+path+"'");
-    params.Body = fs.createReadStream(path);
     return new Promise(function(resolve,reject) {
+        console.log("Putting S3 Object '" + params.Bucket+"/"+params.Key + "' from '"+path+"'");
+        params.Body = fs.createReadStream(path);
         s3.putObject(params, function(err, data) {
             if(err) {
                 reject(err);
@@ -161,7 +182,7 @@ function putS3Object(params, path) {
 }
 
 function uploadOutputArtifact(jobDetails, artifactName, path) {
-    console.log("Uploading output artifact '" + artifactName + "' from '"+artifactExtractPath+"'");
+    console.log("Uploading output artifact '" + artifactName + "' from '"+path+"'");
 
     // Get the output artifact
     var artifact = null;
@@ -208,47 +229,94 @@ function downloadInputArtifact(jobDetails, artifactName, dest) {
     }
 }
 
-function createZip(sourceDirectory, destZip) {
-    console.log("Creating zip '"+destZip+"' from '"+sourceDirectory+"'");
-
+function packTarball(sourceDirectory, destPath) {
     return new Promise(function (resolve, reject) {
-        var archive = archiver.create('zip', {});
-        var output = fs.createWriteStream(destZip);
+        console.log("Creating tarball '"+destPath+"' from '"+sourceDirectory+"'");
 
-        output.on('close', resolve);
-        archive.on('error', reject);
 
-        archive.pipe(output);
+        var packer = tar.Pack({ noProprietary: true, fromBase: true })
+            .on('error', reject);
 
-        archive.bulk([{
-            expand: true,
-            cwd: sourceDirectory,
-            src: ['**']
-        }]);
+        var gzip = zlib.createGzip()
+            .on('error', reject)
 
-        archive.finalize();
+        var destFile = fs.createWriteStream(destPath)
+            .on('error', reject)
+            .on('close', resolve);
+
+        fstream.Reader({ path: sourceDirectory, type: "Directory" })
+            .on('error', reject)
+            .pipe(packer)
+            .pipe(gzip)
+            .pipe(destFile);
     });
+}
 
+function extractTarball(sourcePath,destDirectory) {
+    return new Promise(function (resolve, reject) {
+        console.log("Extracting tarball '" + sourcePath+ "' to '" + destDirectory + "'");
+
+        var sourceFile = fs.createReadStream(sourcePath)
+            .on('error', reject);
+
+        var gunzip = zlib.createGunzip()
+            .on('error', reject)
+
+        var extractor = tar.Extract({path: destDirectory})
+            .on('error', reject)
+            .on('end', resolve);
+
+        sourceFile
+            .pipe(gunzip)
+            .pipe(extractor);
+    });
+}
+
+function rmdir(dir) {
+    if(!dir || dir == '/') {
+        throw new Error('Invalid directory '+dir);
+    }
+
+    console.log("Cleaning directory '"+dir+"'");
+    return exec('rm -rf '+dir);
 }
 
 // extract zip to directory
 //
 // return: promise
 function extractZip(sourceZip,destDirectory) {
-    if(!destDirectory || destDirectory == '/') {
-        throw new Error('Invalid destDirectory '+destDirectory);
-    }
+    return new Promise(function (resolve, reject) {
+        console.log("Extracting zip: '"+sourceZip+"' to '"+destDirectory+"'");
 
-    console.log("Cleaning directory '"+destDirectory+"'");
-    return exec('rm -rf '+destDirectory)
-        .then(function() {
-            console.log("Extracting zip: '"+sourceZip+"' to '"+destDirectory+"'");
-
-            var zip = new AdmZip(sourceZip);
-            zip.extractAllTo(destDirectory,true);
-
-            return Promise.resolve(true);
-        })
+        yauzl.open(sourceZip, {lazyEntries: true}, function(err, zipfile) {
+            if (err) throw err;
+            zipfile.readEntry();
+            zipfile.on("error", reject);
+            zipfile.on("end", resolve);
+            zipfile.on("entry", function(entry) {
+                if (/\/$/.test(entry.fileName)) {
+                    // directory file names end with '/'
+                    mkdirp(destDirectory+'/'+entry.fileName, function(err) {
+                        if (err) throw err;
+                        zipfile.readEntry();
+                    });
+                } else {
+                    // file entry
+                    zipfile.openReadStream(entry, function(err, readStream) {
+                        if (err) throw err;
+                        // ensure parent directory exists
+                        mkdirp(destDirectory+'/'+path.dirname(entry.fileName), function(err) {
+                            if (err) throw err;
+                            readStream.pipe(fs.createWriteStream(destDirectory+'/'+entry.fileName));
+                            readStream.on("end", function() {
+                                zipfile.readEntry();
+                            });
+                        });
+                    });
+                }
+            });
+        });
+    });
 }
 
 // install NPM

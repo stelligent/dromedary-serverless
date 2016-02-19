@@ -2,10 +2,7 @@
 
 var gulp        = require('gulp');
 var gutil       = require('gulp-util');
-var zip         = require('gulp-zip');
-var del         = require('del');
 
-var gpipeline   = require('.');
 
 var pipelineConfig = {
     region: (gutil.env.region || 'us-west-2'),
@@ -16,18 +13,103 @@ var pipelineConfig = {
     githubBranch: 'serverless'
 };
 
+var gpipeline   = require('.');
 gpipeline(gulp,pipelineConfig);
 
 
-gulp.task('clean', function(cb) {
-    return del(['dist'],cb);
+gulp.task('testNpmAction', ['pipeline:lambda:js','pipeline:lambda:install'], function(cb) {
+    process.env.AWS_DEFAULT_REGION = 'us-west-2';
+    var event = {
+        "CodePipeline.job": {
+            "id": "8288938e-5c9c-49da-80d9-b637069c8683",
+            "accountId": "324320755747",
+            "data": {
+                "actionConfiguration": {
+                    "configuration": {
+                        "FunctionName": "dromedary-serverless-pipelin-CodePipelineNpmLambda-12730MJYCWL09",
+                        "UserParameters": "install"
+                    }
+                },
+                "inputArtifacts": [
+                    {
+                        "location": {
+                            "s3Location": {
+                                "bucketName": "dromedary-serverless-pipeline-artifactbucket-f7vk0bfu30n1",
+                                "objectKey": "dromedary-serverless/SourceOutp/SWUkOWF.zip"
+                            },
+                            "type": "S3"
+                        },
+                        "name": "SourceOutput"
+                    }
+                ],
+                "outputArtifacts": [
+                    {
+                        "location": {
+                            "s3Location": {
+                                "bucketName": "dromedary-serverless-pipeline-artifactbucket-f7vk0bfu30n1",
+                                "objectKey": "dromedary-serverless/SourceInst/kJbj9QO"
+                            },
+                            "type": "S3"
+                        },
+                        "name": "SourceInstalledOutput"
+                    }
+                ]
+            }
+
+        }
+    };
+    var context = {
+        fail: function(e) {
+            cb(e);
+        },
+        succeed: function(m) {
+            cb(null,m);
+        }
+    };
+    var lambda = require('./lambda');
+    lambda.npmHandler(event, context);
 });
 
-gulp.task('dist',['pipeline:lambda:zip'], function() {
-    return gulp.src(['index.js','package.json','cfn{,/**}','dist{,/codepipeline-gulp.zip}'])
-        .pipe(zip('pipeline.zip'))
-        .pipe(gulp.dest('dist'));
+gulp.task('testGulpAction', ['pipeline:lambda:js','pipeline:lambda:install'], function(cb) {
+    process.env.AWS_DEFAULT_REGION = 'us-west-2';
+    var event = {
+        "CodePipeline.job": {
+            "id": "8288938e-5c9c-49da-80d9-b637069c8683",
+            "accountId": "324320755747",
+            "data": {
+                "actionConfiguration": {
+                    "configuration": {
+                        "FunctionName": "dromedary-serverless-pipelin-CodePipelineNpmLambda-12730MJYCWL09",
+                        "UserParameters": "test"
+                    }
+                },
+                "inputArtifacts": [
+                    {
+                        "location": {
+                            "s3Location": {
+                                "bucketName": "dromedary-serverless-pipeline-artifactbucket-f7vk0bfu30n1",
+                                "objectKey": "dromedary-serverless/SourceInst/kJbj9QO"
+                            },
+                            "type": "S3"
+                        },
+                        "name": "SourceInstalledOutput"
+                    }
+                ],
+                "outputArtifacts": [
+                ]
+            }
+
+        }
+    };
+    var context = {
+        fail: function(e) {
+            cb(e);
+        },
+        succeed: function(m) {
+            cb(null,m);
+        }
+    };
+    var lambda = require('./lambda');
+    lambda.gulpHandler(event, context);
 });
-
-
 
