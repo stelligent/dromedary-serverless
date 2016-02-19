@@ -20,7 +20,7 @@
     "aws-sdk": "^2.2.34",
     "cfn-api-gateway-deployment": "^0.4.0",
     "cfn-api-gateway-integration": "^0.2.0",
-    "cfn-api-gateway-integration-response": "cplee/cfn-api-gateway-integration-response#master",
+    "cfn-api-gateway-integration-response": "https://github.com/cplee/cfn-api-gateway-integration-response/archive/master.tar.gz",
     "cfn-api-gateway-method": "^0.3.0",
     "cfn-api-gateway-method-response": "^0.2.1",
     "cfn-api-gateway-resource": "^0.1.1",
