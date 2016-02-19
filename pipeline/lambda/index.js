@@ -1,23 +1,32 @@
 'use strict'
 
+var fs   = require('fs');
 var AWS  = require('aws-sdk');
-var gulp = require('gulp');
-var unzip = require('unzip');
-var runSequence = require('run-sequence');
-require('./gulpfile.js');
+var AdmZip = require('adm-zip');
+var spawn = require('child_process').spawn;
 
 var codepipeline = new AWS.CodePipeline();
 var s3 = new AWS.S3({maxRetries: 10, signatureVersion: "v4"});
 
+function exec(command,args,cwd,callback) {
+    var child = spawn(command, args, {cwd: cwd});
 
-function getArtifact(event, artifactName) {
-    var artifact;
-    event["CodePipeline.job"].data.inputArtifacts.forEach(function(a) {
-        if(a.name == artifactName) {
-            artifact = a;
+    var lastMessage = ""
+    child.stdout.on('data', function(data) {
+        lastMessage += data.toString('utf-8');
+        process.stdout.write(data);
+    });
+    child.stderr.on('data', function(data) {
+        lastMessage += data.toString('utf-8');
+        process.stderr.write(data);
+    });
+    child.on('close', function (code) {
+        if(!code) {
+            callback();
+        } else {
+            callback("child process exited with code="+code+" message="+lastMessage);
         }
     });
-    return artifact;
 }
 
 // Notify AWS CodePipeline of a successful job
@@ -57,82 +66,86 @@ function putJobFailure (message, event, context) {
     });
 };
 
-function runTask(event,context) {
-    // Retrieve the value of UserParameters from the Lambda action configuration in AWS CodePipeline
-    var task = event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters;
+function runAction(jobId, callback) {
+    var sourceZip = '/tmp/source.zip';
+    var sourceExtract = '/tmp/source';
 
-    // run gulp
-    console.log("Running gulp task: "+task);
-    runSequence(task,function(err) {
+    var params = { jobId: jobId };
+    codepipeline.getJobDetails(params, function(err, data) {
         if(err) {
-            putJobFailure(err, event, context);
+            callback(err);
         } else {
-            putJobSuccess("Task passed.", event, context);
+            var jobDetails = data.jobDetails
+
+            // Retrieve the value of UserParameters from the Lambda action configuration in AWS CodePipeline
+            var task = jobDetails.data.actionConfiguration.configuration.UserParameters;
+
+            // Get the intput artifact
+            var sourceOutput = null;
+            jobDetails.data.inputArtifacts.forEach(function(a) {
+                if(a.name == "SourceOutput") {
+                    sourceOutput = a;
+                }
+            });
+
+
+            if(sourceOutput != null && sourceOutput.location.type == 'S3') {
+                var params = {
+                    Bucket: sourceOutput.location.s3Location.bucketName,
+                    Key: sourceOutput.location.s3Location.objectKey
+                };
+
+                var file = fs.createWriteStream(sourceZip);
+                s3.getObject(params)
+                    .createReadStream()
+                        .on('error', callback)
+                    .pipe(file)
+                        .on('error', callback)
+                        .on('close', function () {
+                            console.log("Extracting zip");
+
+                            var zip = new AdmZip(sourceZip);
+                            zip.extractAllTo(sourceExtract,true);
+
+                            console.log("Installing npm");
+                            exec('cp', ['-r','/var/task/node_modules',sourceExtract], sourceExtract, function(err, data) {
+                                if(err) {
+                                    callback(err);
+                                } else {
+                                    console.log("Running npm install");
+                                    exec('node', ['./node_modules/npm/bin/npm-cli.js','install'], sourceExtract, function(err, data) {
+                                        if(err) {
+                                            callback(err);
+                                        } else {
+                                            console.log("Running gulp task: " + task);
+                                            exec('./node_modules/gulp/bin/gulp.js', ['--no-color', task], sourceExtract, callback);
+                                        }
+                                    });
+                                }
+                            });
+
+
+                        });
+
+            } else {
+                callback("Unknown Source Type:"+JSON.stringify(sourceOutput));
+            }
         }
+
     });
 }
 
 exports.handler = function( event, context ) {
     try {
-        console.log(JSON.stringify(event["CodePipeline.job"]));
+        console.log(JSON.stringify(event));
 
-        // Get the intput artifact
-        var sourceOutput = getArtifact(event, 'SourceOutput');
-
-        if(sourceOutput.location.type == 'S3') {
-            var params = {
-                Bucket: sourceOutput.location.s3Location.bucketName,
-                Key: sourceOutput.location.s3Location.objectKey
-            };
-
-            /*
-            s3.getObject(params).createReadStream()
-                .pipe(unzip.Extract({ path: '/tmp/source/' }))
-                .on('end', function() {
-                        console.log("got end event.")
-                        runTask(event,context);
-                })
-                .on('httpDone', function() {
-                    console.log("got httpDone event.")
-                    runTask(event,context);
-                });
-                */
-            /*
-                file.end();
-
-                fs.createReadStream('path/to/archive.zip').pipe(unzip.Extract({ path: 'output/path' }));
-
-                runTask(event,context);
-                */
-            /*
-
-                */
-            var file = require('fs').createWriteStream('/tmp/source.zip');
-            s3.getObject(params)
-                .on('httpData', function(chunk) { file.write(chunk); })
-                .on('httpDone', function() {
-                    file.end();
-
-                    console.log("Done writing zip file");
-
-                    fs.createReadStream('/tmp/source.zip')
-                      .pipe(unzip.Extract({ path: '/tmp/source/' }))
-                      .on('error', function(e) {
-                          console.log("got error event.")
-                          putJobFailure(e, event, context);
-                      })
-                      .on('finish', function() {
-                        console.log("got finish event.")
-                        runTask(event,context);
-                      })
-                      .on('end', function() {
-                        console.log("got end event.")
-                        runTask(event,context);
-                      })
-
-                })
-                .send();
-        }
+        runAction(event["CodePipeline.job"].id, function(err,data) {
+            if(err) {
+                putJobFailure(err,event,context);
+            } else {
+                putJobSuccess(data,event,context);
+            }
+        })
 
     } catch (e) {
         putJobFailure(e, event, context);
@@ -140,6 +153,9 @@ exports.handler = function( event, context ) {
 
 };
 
-
+exports.runAction = function(jobId,callback) {
+    AWS.config.region = 'us-west-2';
+    return runAction(jobId,callback);
+}
 
 

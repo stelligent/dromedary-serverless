@@ -169,6 +169,7 @@
                 {
                   "Effect": "Allow",
                   "Action": [
+                    "codepipeline:GetJobDetails",
                     "codepipeline:PutJobSuccessResult",
                     "codepipeline:PutJobFailureResult"
                   ],
@@ -200,14 +201,14 @@
       "Properties":{
         "Code" : {
           "S3Bucket":{ "Ref": "TemplateBucketName" },
-          "S3Key": "pipeline-lambda.zip"
+          "S3Key": "codepipeline-gulp.zip"
         },
         "Role":{ "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ] },
         "Description":"Run gulp tasks for pipeline",
-        "Timeout":20,
+        "Timeout":300,
         "Handler":"index.handler",
         "Runtime":"nodejs",
-        "MemorySize":128
+        "MemorySize":512
       }
     },
     "ArtifactBucket": {

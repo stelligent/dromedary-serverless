@@ -1,7 +1,9 @@
 var gulp        = require('gulp');
 var gcallback   = require('gulp-callback');
+var mocha       = require('gulp-mocha');
 var gutil       = require('gulp-util');
 var zip         = require('gulp-zip');
+var unzip       = require('gulp-unzip');
 var install     = require('gulp-install');
 var del         = require('del');
 var runSequence = require('run-sequence');
@@ -13,19 +15,26 @@ var git         = require('git-rev')
 var moment      = require('moment');
 
 
+
+
 // configuration
 var pipelineConfig = {
     stackName: (gutil.env.stackName || 'dromedary-serverless'),
     githubBranch: 'config-api-baseurl',
-    region: (gutil.env.region || 'us-west-2')
+    region: (gutil.env.region || 'us-west-2'),
+    tmpSourceFile: process.env.SOURCE_ARTIFACT,
+    tmpSourceDir: '/tmp/source/'
 };
 
+var pipeline = require('pipeline');
+pipeline(gulp, pipelineConfig);
 
 // AWS services
 AWS.config.region = pipelineConfig.region
 var s3             = new AWS.S3();
 var cloudFormation = new AWS.CloudFormation();
 var lambda         = new AWS.Lambda();
+
 
 
 gulp.task('clean', function(cb) {
@@ -52,19 +61,63 @@ gulp.task('teardown', function(cb) {
     )
 });
 
+gulp.task('app:extractSource',  function() {
+    var stats = fs.statSync(process.env.SOURCE_ARTIFACT);
+    console.log("About to unzip file '"+process.env.SOURCE_ARTIFACT+"' (size="+stats['size']+")");
+    return gulp.src(pipelineConfig.tmpSourceFile)
+        .pipe(unzip())
+        .pipe(gulp.dest(pipelineConfig.tmpSourceDir))
+});
+gulp.task('app:install', ['app:extractSource'], function() {
+    return gulp.src(pipelineConfig.tmpSourceDir+'/package.json')
+        .pipe(install());
+});
+gulp.task('app:includeTasks', ['app:extractSource'], function() {
+    // TODO: load other gulpfile into namespace
+});
+
+// JSHint
+gulp.task('lint-app', function() {
+    var appdir = pipelineConfig.tmpSourceDir;
+    return gulp.src([appdir+'/app.js', appdir+'/lib/*.js'])
+        .pipe(jshint())
+        .pipe(jshint.reporter('default', { verbose: true }))
+        .pipe(jshint.reporter('fail'));
+});
+gulp.task('lint-charthandler', function() {
+    var appdir = pipelineConfig.tmpSourceDir;
+    return gulp.src(appdir+'/public/charthandler.js')
+        .pipe(jshint({ 'globals': { Chart: true, dromedaryChartHandler: true }}))
+        .pipe(jshint.reporter('default', { verbose: true }))
+        .pipe(jshint.reporter('fail'));
+});
+
+gulp.task('app:staticAnalysis', ['app:install','app:includeTasks'], function(callback) {
+    runSequence.use(gulp)(
+        ['lint-app', 'lint-charthandler'],
+        callback
+    );
+});
+
+gulp.task('app:unitTest', ['app:install','app:includeTasks'], function (callback) {
+    var appdir = pipelineConfig.tmpSourceDir;
+    return gulp.src(appdir+'/test/*.js', {read: false})
+        .pipe(mocha({reporter: 'spec'}));
+});
+
 
 gulp.task('app:js', function() {
     return gulp.src(['app/lambda/index.js'])
         .pipe(gulp.dest('dist/app/'));
 });
 
-gulp.task('app:node-mods', function() {
+gulp.task('app:installProd', function() {
     return gulp.src('./package.json')
         .pipe(gulp.dest('dist/app/'))
         .pipe(install({production: true}));
 });
 
-gulp.task('app:zip', ['app:js','app:node-mods'], function() {
+gulp.task('app:zip', ['app:js','app:installProd'], function() {
     return gulp.src(['!dist/app/package.json','!**/aws-sdk{,/**}','dist/app/**/*'])
         .pipe(zip('app.zip'))
         .pipe(gulp.dest('dist'));
@@ -396,222 +449,6 @@ gulp.task('emptySite', function(cb) {
     emptyBucket(pipelineConfig.stackName+ '-site', cb);
 });
 
-gulp.task('pipeline:js', function() {
-    return gulp.src(['pipeline/lambda/index.js','gulpfile.js'])
-        .pipe(gulp.dest('dist/pipeline-lambda/'));
-});
-
-gulp.task('pipeline:node-mods', function() {
-    return gulp.src('./package.json')
-        .pipe(gulp.dest('dist/pipeline-lambda/'))
-        .pipe(install({production: false}));
-});
-
-gulp.task('pipeline:zip', ['pipeline:js','pipeline:node-mods'], function() {
-    return gulp.src(['!dist/pipeline-lambda/package.json','!**/aws-sdk{,/**}','dist/pipeline-lambda/**/*'])
-        .pipe(zip('pipeline-lambda.zip'))
-        .pipe(gulp.dest('dist'));
-});
-gulp.task('pipeline:uploadLambda', ['pipeline:zip'], function(callback) {
-    getStack(pipelineConfig.stackName+'-pipeline',function(err, stack) {
-        if(err) {
-            callback(err);
-        } else if(!stack) {
-            callback();
-        } else {
-            var pipelineFunctionArn = stack.Outputs.filter(function (o) { return o.OutputKey == 'CodePipelineLambdaArn'})[0].OutputValue;
-            var params = {
-                FunctionName: pipelineFunctionArn,
-                Publish: true,
-                ZipFile: fs.readFileSync('./dist/pipeline-lambda.zip')
-            };
-            lambda.updateFunctionCode(params, function(err, data) {
-                if (err) {
-                    callback(err);
-                } else {
-                    console.log("Updated lambda to version: "+data.Version);
-                    callback();
-                }
-            });
-
-        }
-    })
-});
-
-gulp.task('pipeline:uploadS3', ['pipeline:zip','cfn:templatesBucket'], function(cb) {
-    var path = 'dist/pipeline-lambda.zip';
-    var params = {
-        Bucket: pipelineConfig.stackName+'-templates',
-        Key: 'pipeline-lambda.zip',
-        ACL: 'public-read',
-        ContentType: mime.lookup(path),
-        Body: fs.readFileSync(path)
-    }
-
-    s3.putObject(params, function(err, data) {
-        if (err) {
-            cb(err);
-        } else {
-            cb();
-        }
-    });
-});
-
-gulp.task('pipeline:up',['cfn:templates','cfn:customResources','pipeline:uploadS3'],  function() {
-    var stackName = pipelineConfig.stackName+'-pipeline';
-    return getStack(stackName, function(err, stack) {
-        var action, status = stack && stack.StackStatus;
-        if (!status || status === 'DELETE_COMPLETE') {
-            action = 'createStack';
-        } else if (status.match(/(CREATE|UPDATE)_COMPLETE/)) {
-            action = 'updateStack';
-        } else {
-            return console.error('Stack "' + stackName + '" is currently in ' + status + ' status and can not be deployed.');
-        }
-
-
-        var s3Endpoint = (pipelineConfig.region=='us-east-1'?'https://s3.amazonaws.com':'https://s3-'+pipelineConfig.region+'.amazonaws.com');
-        var cfnBucket = pipelineConfig.stackName+"-templates";
-        var s3BucketURL = s3Endpoint+'/'+cfnBucket;
-
-        if(!gutil.env.token) {
-            console.error("You must provide your GitHub token with `--token=XXXX`");
-            process.exit(1);
-        }
-
-        var params = {
-            StackName: stackName,
-            Capabilities: ['CAPABILITY_IAM'],
-            Parameters: [
-                {
-                    ParameterKey: "GitHubUser",
-                    ParameterValue: "stelligent"
-                },
-                {
-                    ParameterKey: "GitHubToken",
-                    ParameterValue: gutil.env.token,
-                },
-                {
-                    ParameterKey: "GitHubRepo",
-                    ParameterValue: "dromedary"
-                },
-                {
-                    ParameterKey: "GitHubBranch",
-                    ParameterValue: pipelineConfig.githubBranch
-                },
-                {
-                    ParameterKey: "TemplateBucketName",
-                    ParameterValue: cfnBucket
-                }
-            ],
-            TemplateURL: s3BucketURL+"/pipeline-master.json"
-        };
-
-        cloudFormation[action](params, function(err) {
-            if (err) {
-                throw err;
-            }
-            var a = action === 'createStack' ? 'creation' : 'update';
-            console.log('Stack ' + a + ' in progress.');
-        });
-    });
-});
-
-gulp.task('pipeline:emptyArtifacts', function(callback) {
-    getStack(pipelineConfig.stackName+'-pipeline',function(err, stack) {
-        if (err) {
-            callback(err);
-        } else if (!stack) {
-            callback();
-        } else {
-            var artifactBucket = stack.Outputs.filter(function (o) { return o.OutputKey == 'ArtifactBucket' })[0].OutputValue;
-            emptyBucket(artifactBucket, callback);
-        }
-    });
-});
-
-gulp.task('pipeline:down', ['pipeline:emptyArtifacts'], function() {
-    var stackName = pipelineConfig.stackName+'-pipeline';
-    return getStack(stackName, function(err) {
-        if (err) { throw err; }
-
-        cloudFormation.deleteStack({StackName: stackName}, function(err) {
-            if (err) {
-                throw err;
-            }
-            console.log('Stack deletion in progress.');
-        });
-    });
-});
-
-gulp.task('pipeline:wait', function(cb) {
-    var stackName = pipelineConfig.stackName+'-pipeline';
-    var checkFunction = function() {
-        getStack(stackName, function(err,stack) {
-            if (err) {
-                throw err;
-            } else {
-                if(!stack || /_IN_PROGRESS$/.test(stack.StackStatus)) {
-                    console.log("      StackStatus = "+(stack!=null?stack.StackStatus:'NOT_FOUND'));
-                    setTimeout(checkFunction, 5000);
-                } else {
-                    console.log("Final StackStatus = "+stack.StackStatus);
-                    cb();
-                }
-            }
-        });
-    };
-
-    checkFunction();
-});
-
-gulp.task('pipeline:status', function() {
-    var stackName = pipelineConfig.stackName+"-pipeline";
-    return getStack(stackName, function(err, stack) {
-        if (err) {
-            throw err;
-        }
-        if (!stack) {
-            return console.error('Stack does not exist: ' + stackName);
-        }
-        console.log('Status: '+stack.StackStatus);
-        console.log('Outputs: ');
-        stack.Outputs.forEach(function (output) {
-            console.log('  '+output.OutputKey+' = '+output.OutputValue);
-        });
-        console.log('');
-        console.log('Use gulp pipeline:log to view full event log');
-    });
-});
-
-gulp.task('pipeline:log', function() {
-    var stackName = pipelineConfig.stackName+'-pipeline';
-    return getStack(stackName, function(err, stack) {
-        if (err) {
-            throw err;
-        }
-        if (!stack) {
-            return console.log('Stack does not exist: ' + stackName);
-        }
-        if (!stack.StackStatus.match(/(CREATE|UPDATE)_COMPLETE/)) {
-            cloudFormation.describeStackEvents({StackName: stackName}, function(err, data) {
-                if (!data) {
-                    console.log('No log info available for ' + stackName);
-                    return;
-                }
-                var events = data.StackEvents;
-                events.sort(function(a, b) {
-                    return new Date(a.Timestamp).getTime() - new Date(b.Timestamp).getTime();
-                });
-                events.forEach(function(event) {
-                    event.Timestamp = new Date(event.Timestamp).toLocaleString().replace(',', '');
-                    event.ResourceType = '[' + event.ResourceType + ']';
-                    console.log(event.Timestamp+' '+event.ResourceStatus+' '+event.LogicalResourceId+event.ResourceType+' '+event.ResourceStatusReason);
-                });
-            });
-        }
-    });
-});
 
 
 function zipLambdaModule(moduleName, cb) {
