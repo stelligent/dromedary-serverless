@@ -52,7 +52,7 @@
     "gulp-serverless-pipeline": "file:pipeline"
   },
   "dependencies": {
-    "dromedary": "stelligent/dromedary#config-api-baseurl",
+    "dromedary": "stelligent/dromedary#serverless",
     "lambda-express": "file:app/lambda"
   }
 }

@@ -1,5 +1,5 @@
 var http = require('http')
-var AWS  = require('aws-sdk');
+
 
 
 /*
@@ -118,7 +118,6 @@ exports.toApp = function( event, context, app ) {
     };
 
     // setup and call express
-    process.env.AWS_DEFAULT_REGION = AWS.config.region;
     app.handle(req, res);
 };
 
