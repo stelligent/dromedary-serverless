@@ -9,11 +9,11 @@ You'll also want to have gulp installed: `npm install -g gulp`
 #Deploy
 Be sure to run `npm install` first to install all dependent modules.
 
-To provision the AWS resources and deploy the app, just run `gulp launch`
+To provision the AWS resources and deploy the app, just run `gulp app:launch`
 
-You can run `gulp cfn:wait` to wait for the stack to come up, and then `gulp cfn:status` to get the outputs, including the application URL.
+You can run `gulp app:wait` to wait for the stack to come up, and then `gulp cfn:status` to get the outputs, including the application URL.
 
-To tear everything down, run `gulp teardown`
+To tear everything down, run `gulp app:teardown`
 
 By default, the stack name will be **dromedary-serverless**.  You can change this by passing `--stackName=my-stack-name` to any of the above gulp commands.
 

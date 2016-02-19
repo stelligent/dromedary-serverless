@@ -156,7 +156,7 @@ exports.registerTasks = function ( gulp, opts ) {
 
     gulp.task(taskPrefix+':templates',[taskPrefix+':templatesBucket'], function(cb) {
         var complete = 0;
-        var dirs = ['app/cfn','pipeline/cfn'];
+        var dirs = ['app/cfn'];
         dirs.forEach(function(dir) {
             uploadToS3(dir,cfnBucket,function(err) {
                 if(err) {
