@@ -25,18 +25,18 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
     gulp.task(taskPrefix+':lambda:js', function() {
-        return gulp.src(['lambda/index.js'])
+        return gulp.src([__dirname+'/lambda/index.js'])
             .pipe(gulp.dest(dist+'/lambda/'));
     });
 
     gulp.task(taskPrefix+':lambda:install', function() {
-        return gulp.src('lambda/package.json')
+        return gulp.src(__dirname+'/lambda/package.json')
             .pipe(gulp.dest(dist+'/lambda/'))
             .pipe(install({production: true}));
     });
 
     gulp.task(taskPrefix+':lambda:zip', [taskPrefix+':lambda:js',taskPrefix+':lambda:install'], function() {
-        return gulp.src(['!'+dist+'/lambda/package.json','!'+dist+'**/aws-sdk{,/**}',dist+'/lambda/**/*'])
+        return gulp.src(['!'+dist+'/lambda/package.json','!'+dist+'/**/aws-sdk{,/**}',dist+'/lambda/**/*'])
             .pipe(zip('pipeline-lambda.zip'))
             .pipe(gulp.dest(dist));
     });
@@ -126,7 +126,7 @@ exports.registerTasks = function ( gulp, opts ) {
 
     gulp.task(taskPrefix+':templates',[taskPrefix+':templatesBucket'], function(cb) {
         var complete = 0;
-        var dirs = ['cfn'];
+        var dirs = [__dirname+'/cfn'];
         dirs.forEach(function(dir) {
             uploadToS3(dir,cfnBucket,function(err) {
                 if(err) {
