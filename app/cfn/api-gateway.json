@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion":"2010-09-09",
-  "Description":"Dromedary demo - lambda for the application",
+  "Description":"Dromedary demo - apigateway for the application",
   "Parameters":{
     "BucketName":{
       "Type":"String",

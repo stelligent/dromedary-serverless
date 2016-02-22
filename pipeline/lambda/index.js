@@ -75,7 +75,7 @@ function handlePromise(promise, event, context) {
 
             var params = {
                 jobId: event["CodePipeline.job"].id,
-                continuationToken: (continuationToken+1)
+                continuationToken: (continuationToken+1).toString()
             };
             codepipeline.putJobSuccessResult(params, function(err, data) {
                 if(err) {

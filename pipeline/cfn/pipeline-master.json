@@ -154,11 +154,7 @@
                     "cloudwatch:*",
                     "s3:*",
                     "cloudformation:*",
-                    "apigateway:*",
-                    "lambda:*",
-                    "dynamodb:*",
-                    "iam:PassRole",
-                    "iam:CreateRole"
+                    "iam:PassRole"
                   ],
                   "Resource":"*",
                   "Effect":"Allow"
@@ -227,9 +223,11 @@
                 {
                   "Action":[
                     "s3:*",
+                    "apigateway:*",
                     "lambda:*",
+                    "dynamodb:*",
                     "cloudformation:*",
-                    "iam:PassRole"
+                    "iam:*"
                   ],
                   "Resource":"*",
                   "Effect":"Allow"
