@@ -11,6 +11,7 @@ var mime        = require('mime');
 var git         = require('git-rev')
 var moment      = require('moment');
 var Promise     = require('promise');
+var chalk       = require('chalk');
 
 var stackName;
 var cloudFormation;
@@ -442,7 +443,8 @@ exports.registerTasks = function ( gulp, opts ) {
                         try {
                             pipelineName = s.Tags.filter(function (t) { return (t.Key == 'PipelineName'); })[0].Value;
                         } catch (e) {}
-                        console.log("Name("+ s.StackName+") Status("+ s.StackStatus+") Created("+ s.CreationTime+") Pipeline("+pipelineName+") AppVersion("+appVersion+")");
+                        var label = chalk.blue.bold;
+                        console.log(chalk.red.underline(s.StackName)+" => "+label("Status:")+ s.StackStatus+label(" Created:")+ s.CreationTime+label(" Pipeline:")+pipelineName+label(" AppVersion:")+appVersion+label(""));
                     });
                 }
             }

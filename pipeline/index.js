@@ -6,6 +6,7 @@ var AWS         = require('aws-sdk');
 var fs          = require('fs');
 var mime        = require('mime');
 var install     = require('gulp-install');
+var chalk       = require('chalk');
 
 
 exports.registerTasks = function ( gulp, opts ) {
@@ -368,7 +369,8 @@ exports.registerTasks = function ( gulp, opts ) {
                                 try {
                                     appName = s.Tags.filter(function (t) { return (t.Key == 'ApplicationName'); })[0].Value;
                                 } catch (e) {}
-                                console.log("Name("+ s.StackName+") Status("+ s.StackStatus+") Created("+ s.CreationTime+") AppName("+appName+") AppVersion("+appVersion+")");
+                                var label = chalk.blue.bold;
+                                console.log(chalk.red.underline(s.StackName)+" => "+label("Status:")+ s.StackStatus+label(" Created:")+ s.CreationTime+label(" AppName:")+appName+label(" AppVersion:")+appVersion+label(""));
                             });
                         }
                     }
