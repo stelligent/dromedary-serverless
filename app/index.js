@@ -10,16 +10,41 @@ var fs          = require('fs');
 var mime        = require('mime');
 var git         = require('git-rev')
 var moment      = require('moment');
+var Promise     = require('promise');
+
+var stackName;
+var cloudFormation;
+
+
+exports.getStack = function () {
+    return new Promise(function(resolve,reject) {
+        cloudFormation.describeStacks({StackName: stackName}, function(err, data) {
+            if (err || data.Stacks == null) {
+                reject(err||"Stack not found.");
+            } else {
+                for (var i=0; i<data.Stacks.length; i++) {
+                    if (data.Stacks[i].StackName === stackName) {
+                        resolve(data.Stacks[i]);
+                        return;
+                    }
+                }
+            }
+            reject("Stack not found.");
+        });
+
+    });
+};
 
 
 exports.registerTasks = function ( gulp, opts ) {
+    stackName = opts.stackName || 'serverless-app';
+
     // AWS services
     AWS.config.region = opts.region
     var s3 = new AWS.S3();
-    var cloudFormation = new AWS.CloudFormation();
+    cloudFormation = new AWS.CloudFormation();
     var lambda = new AWS.Lambda();
 
-    var stackName = opts.stackName || 'serverless-app';
     var siteDirectory = opts.siteDirectory;
     var appSource = opts.appSource;
     var cfnBucket = opts.cfnBucket || stackName + "-templates";

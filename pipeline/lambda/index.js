@@ -64,22 +64,51 @@ function handlePromise(promise, event, context) {
             }
         });
     }).catch( function(message) {
-        var m = JSON.stringify(message);
-        console.error("Failure: "+m);
+        var userParams = querystring.parse( event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters );
+        var retrys = parseInt(userParams['retrys']);
+        if(isNaN(retrys)) {
+            retrys = 0;
+        }
 
-        var params = {
-            jobId: event["CodePipeline.job"].id,
-            failureDetails: {
-                message: m,
-                type: 'JobFailed',
-                externalExecutionId: context.invokeid
-            }
-        };
+        var continuationToken = parseInt(event["CodePipeline.job"].data.continuationToken);
+        if(isNaN(continuationToken)) {
+            continuationToken = 0;
+        }
 
-        codepipeline.putJobFailureResult(params, function(err, data) {
-            context.fail(m);
-        });
 
+        console.log("Prior attempts="+continuationToken+" and retrys="+retrys);
+        if(continuationToken < retrys) {
+            console.log("Retrying later.");
+
+            var params = {
+                jobId: event["CodePipeline.job"].id,
+                continuationToken: (continuationToken+1)
+            };
+            codepipeline.putJobSuccessResult(params, function(err, data) {
+                if(err) {
+                    context.fail(err);
+                } else {
+                    context.succeed("Action complete.");
+                }
+            });
+
+        } else {
+            var m = JSON.stringify(message);
+            console.error("Failure: "+m);
+
+            var params = {
+                jobId: event["CodePipeline.job"].id,
+                failureDetails: {
+                    message: m,
+                    type: 'JobFailed',
+                    externalExecutionId: context.invokeid
+                }
+            };
+
+            codepipeline.putJobFailureResult(params, function(err, data) {
+                context.fail(m);
+            });
+        }
     });
 
 };
@@ -133,11 +162,6 @@ function gulpAction(jobDetails) {
         }).then(function () {
             var taskName = userParams['task'];
             return runGulp(artifactExtractPath, taskName, retrys);
-        }).catch(function (err) {
-            // TODO: handle retrys
-            var retrys = userParams['retrys'];
-            //code_pipeline.put_job_success_result(jobId=job, continuationToken=continuation_token)
-            return err;
         });
 }
 

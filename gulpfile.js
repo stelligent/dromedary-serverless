@@ -46,9 +46,20 @@ gulp.task('test', function () {
         .pipe(mocha({reporter: 'spec'}));
 });
 
+gulp.task('setup-target-url', function (cb) {
+    app.getStack()
+        .then(function(stack) {
+            var siteUrl = stack.Outputs.filter(function (o) { return o.OutputKey == 'SiteURL'})[0].OutputValue;
+            process.env.TARGET_URL = siteUrl;
+            console.log("TARGET_URL => "+process.env.TARGET_URL);
+            cb();
+        })
+        .catch(cb);
+});
+
 // Execute functional tests
-gulp.task('test-functional', function () {
-    return gulp.src('node_modules/dromedary/test-functional/*.js', {read: false})
+gulp.task('test-functional',['setup-target-url'], function (cb) {
+    gulp.src('node_modules/dromedary/test-functional/*.js', {read: false})
         .pipe(mocha({reporter: 'spec'}));
 });
 
