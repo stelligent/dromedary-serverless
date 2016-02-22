@@ -17,6 +17,8 @@ try {
         stackName += stackNameSuffix
     }
 } catch (e) {}
+stackName = stackName.toLowerCase();
+
 console.log("STACK NAME = "+stackName);
 console.log("REGION = "+region);
 

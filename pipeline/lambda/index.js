@@ -156,7 +156,7 @@ function gulpAction(jobDetails) {
             return getJobDetails(jobDetails.id)
         }).then(function (jd) {
             var taskName = userParams['task'];
-            return runGulp(artifactExtractPath, taskName, jd.data.pipelineContext.pipelineName);
+            return runGulp(artifactExtractPath, taskName, jd.jobDetails.data.pipelineContext.pipelineName);
         });
 }
 
