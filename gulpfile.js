@@ -6,8 +6,12 @@ var pipeline    = require('gulp-serverless-pipeline');
 
 var jshint      = require('gulp-jshint'); // copied from dromedary
 var mocha       = require('gulp-mocha'); // copied from dromedary
+var pjson       = require('./package.json');
 
-var stackName =  (gutil.env.stackName || 'dromedary-serverless');
+
+var appName    = pjson.name;
+var appVersion = pjson.version;
+var stackName  =  (gutil.env.stackName || appName);
 var region = (gutil.env.region || process.env.AWS_DEFAULT_REGION || 'us-west-2');
 
 // if a PIPELINE_NAME is used, then append it to the stackName
@@ -19,13 +23,17 @@ try {
 } catch (e) {}
 stackName = stackName.toLowerCase();
 
-console.log("STACK NAME = "+stackName);
-console.log("REGION = "+region);
+console.log("APP NAME    = "+appName);
+console.log("APP VERSION = "+appVersion);
+console.log("STACK NAME  = "+stackName);
+console.log("REGION      = "+region);
 
 
 // add gulp tasks for app
 app.registerTasks(gulp,{
     stackName: stackName,
+    applicationName: appName,
+    applicationVersion: appVersion,
     region: region,
     appSource: 'index.js',
     siteDirectory: 'node_modules/dromedary/public'

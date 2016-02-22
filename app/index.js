@@ -252,11 +252,20 @@ exports.registerTasks = function ( gulp, opts ) {
                         ParameterValue: siteBucket
                     },
                 ],
-                TemplateURL: s3BucketURL+"/main.json"
+                TemplateURL: s3BucketURL+"/main.json",
+                Tags: []
             };
 
             if(action == 'createStack' && process.env.PIPELINE_NAME) {
-                params['Tags'] = [{"Key":"PipelineName","Value":process.env.PIPELINE_NAME}]
+                params['Tags'].push({"Key":"PipelineName","Value":process.env.PIPELINE_NAME});
+            }
+
+            if(opts.appName) {
+                params['Tags'].push({"Key":"ApplicationName","Value":opts.appName});
+            }
+
+            if(opts.appVersion) {
+                params['Tags'].push({"Key":"ApplicationVersion","Value":opts.appVersion});
             }
 
             cloudFormation[action](params, function(err) {
