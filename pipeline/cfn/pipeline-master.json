@@ -39,7 +39,17 @@
     "GulpLaunchTask":{
       "Type":"String",
       "Description":"Gulp task name for launching stack",
-      "Default":"cfn:up"
+      "Default":"app:up"
+    },
+    "GulpWaitForReadyTask":{
+      "Type":"String",
+      "Description":"Gulp task name for waiting for stack to be ready",
+      "Default":"app:assertReady"
+    },
+    "GulpWaitForReadyRetries":{
+      "Type":"Number",
+      "Description":"Number of times to wait for ready",
+      "Default":5
     },
     "GulpDeployAppTask":{
       "Type":"String",
@@ -341,7 +351,7 @@
                   "FunctionName":{
                     "Ref":"CodePipelineNpmLambda"
                   },
-                  "UserParameters":"install"
+                  "UserParameters":"subcommand=install"
                 },
                 "OutputArtifacts": [
                   {
@@ -367,7 +377,7 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpStaticAnalysisTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpStaticAnalysisTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],
@@ -390,7 +400,7 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpUnitTestTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpUnitTestTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],
@@ -418,11 +428,34 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpLaunchTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpLaunchTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],
                 "RunOrder": 1
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "SourceInstalledOutput"
+                  }
+                ],
+                "Name":"WaitForReady",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineGulpLambda"
+                  },
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpWaitForReadyTask"},"&retrys=",{"Ref":"GulpWaitForReadyRetries"}]] }
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder":2
               },
               {
                 "InputArtifacts":[
@@ -441,11 +474,11 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpDeployAppTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpDeployAppTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder": 2
+                "RunOrder": 3
               },
               {
                 "InputArtifacts":[
@@ -464,11 +497,11 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpDeploySiteTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpDeploySiteTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder": 2
+                "RunOrder": 3
               },
               {
                 "InputArtifacts":[
@@ -487,11 +520,11 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpDeployConfigTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpDeployConfigTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder": 2
+                "RunOrder": 3
               },
               {
                 "InputArtifacts":[
@@ -510,11 +543,11 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpFunctionalTestTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpFunctionalTestTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder": 3
+                "RunOrder": 4
               }
             ]
           },
@@ -538,7 +571,7 @@
                   "FunctionName":{
                     "Ref":"CodePipelineGulpLambda"
                   },
-                  "UserParameters":{"Ref":"GulpProductionDNSTask"}
+                  "UserParameters": { "Fn::Join": ["", ["task=", { "Ref":"GulpProductionDNSTask"}]] }
                 },
                 "OutputArtifacts": [
                 ],

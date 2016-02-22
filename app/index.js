@@ -273,6 +273,21 @@ exports.registerTasks = function ( gulp, opts ) {
         checkFunction();
     });
 
+    gulp.task(taskPrefix+':assertReady', function(cb) {
+        getStack(stackName, function(err,stack) {
+            if (err) {
+                throw err;
+            } else {
+                if(!stack || /_IN_PROGRESS$/.test(stack.StackStatus)) {
+                    cb("StackStatus = "+(stack?stack.StackStatus:'NOT_FOUND'));
+                } else {
+                    console.log("StackStatus = "+stack.StackStatus);
+                    cb();
+                }
+            }
+        });
+    });
+
     gulp.task(taskPrefix+':status', function() {
         return getStack(stackName, function(err, stack) {
             if (err) {

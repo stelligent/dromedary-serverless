@@ -31,6 +31,8 @@ pipeline.registerTasks(gulp, {
     gulpStaticAnalysisTask: 'lint',
     gulpUnitTestTask: 'test',
     gulpLaunchTask: 'app:up',
+    gulpWaitForReadyTask: 'app:assertReady',
+    gulpWaitForReadyRetries: '10',
     gulpDeployAppTask: 'app:lambda:upload',
     gulpDeploySiteTask: 'app:uploadSite',
     gulpDeployConfigTask: 'app:uploadConfig',

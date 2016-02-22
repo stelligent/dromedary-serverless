@@ -1,6 +1,7 @@
 'use strict'
 
 var fs       = require('fs');
+
 var AWS      = require('aws-sdk');
 
 var yauzl  = require("yauzl");    // for .zip
@@ -12,7 +13,7 @@ var zlib     = require('zlib');    // for .tar.gz
 var fstream  = require("fstream"); // for .tar.gz
 
 var childProcess = require('child_process'); // for exec
-
+var querystring  = require('querystring'); // for user parameters
 var Promise  = require('promise'); // for sanity!
 
 
@@ -87,6 +88,7 @@ function handlePromise(promise, event, context) {
 //
 // return: promise
 function npmAction(jobDetails) {
+    var userParams = querystring.parse( jobDetails.data.actionConfiguration.configuration.UserParameters );
     var artifactName = 'SourceOutput';
     var artifactZipPath = '/tmp/source.zip';
     var artifactExtractPath = '/tmp/source/';
@@ -102,7 +104,7 @@ function npmAction(jobDetails) {
         }).then(function () {
             return installNpm(artifactExtractPath);
         }).then(function () {
-            var subcommand = jobDetails.data.actionConfiguration.configuration.UserParameters;
+            var subcommand = userParams['subcommand'];
             return runNpm(artifactExtractPath, subcommand);
         }).then(function () {
             return packTarball(artifactExtractPath, outArtifactTarballPath);
@@ -116,6 +118,7 @@ function npmAction(jobDetails) {
 //
 // return: promise
 function gulpAction(jobDetails) {
+    var userParams = querystring.parse( jobDetails.data.actionConfiguration.configuration.UserParameters );
     var artifactName = 'SourceInstalledOutput';
     var artifactZipPath = '/tmp/source_installed.tar.gz';
     var artifactExtractPath = '/tmp/source_installed/';
@@ -128,8 +131,13 @@ function gulpAction(jobDetails) {
         }).then(function () {
             return installNpm(artifactExtractPath);
         }).then(function () {
-            var taskName = jobDetails.data.actionConfiguration.configuration.UserParameters;
-            return runGulp(artifactExtractPath, taskName);
+            var taskName = userParams['task'];
+            return runGulp(artifactExtractPath, taskName, retrys);
+        }).catch(function (err) {
+            // TODO: handle retrys
+            var retrys = userParams['retrys'];
+            //code_pipeline.put_job_success_result(jobId=job, continuationToken=continuation_token)
+            return err;
         });
 }
 
@@ -332,15 +340,21 @@ function installNpm(destDirectory) {
 // return: promise
 function runNpm(packageDirectory, subcommand) {
     console.log("Running 'npm "+subcommand+"' in '"+packageDirectory+"'");
-    return exec('node ./node_modules/npm/bin/npm-cli.js '+subcommand, {cwd: packageDirectory});
+    return exec('node '+packageDirectory+'/node_modules/npm/bin/npm-cli.js '+subcommand, {cwd: packageDirectory});
 }
 
 // run gulp
 //
 // return: promise
 function runGulp(packageDirectory, task) {
+
     console.log("Running gulp task '" + task + "' in '"+packageDirectory+"'");
-    return exec('node ./node_modules/gulp/bin/gulp.js --no-color '+task,{cwd: packageDirectory});
+    // clone the env, append npm to path
+    var envCopy = {};
+    for (var e in process.env) envCopy[e] = process.env[e];
+    envCopy['PATH'] += (':'+packageDirectory+'/node_modules/.bin/');
+    console.log("PATH: "+envCopy['PATH']);
+    return exec('node '+packageDirectory+'/node_modules/gulp/bin/gulp.js --no-color '+task,{cwd: packageDirectory, env: envCopy});
 }
 
 

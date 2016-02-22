@@ -209,6 +209,14 @@ exports.registerTasks = function ( gulp, opts ) {
                         ParameterValue: opts.gulpLaunchTask
                     },
                     {
+                        ParameterKey: "GulpWaitForReadyTask",
+                        ParameterValue: opts.gulpWaitForReadyTask
+                    },
+                    {
+                        ParameterKey: "GulpWaitForReadyRetries",
+                        ParameterValue: opts.gulpWaitForReadyRetries
+                    },
+                    {
                         ParameterKey: "GulpDeployAppTask",
                         ParameterValue: opts.gulpDeployAppTask
                     },
