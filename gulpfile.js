@@ -8,7 +8,18 @@ var jshint      = require('gulp-jshint'); // copied from dromedary
 var mocha       = require('gulp-mocha'); // copied from dromedary
 
 var stackName =  (gutil.env.stackName || 'dromedary-serverless');
-var region = (gutil.env.region || 'us-west-2');
+var region = (gutil.env.region || process.env.AWS_DEFAULT_REGION || 'us-west-2');
+
+// if a PIPELINE_NAME is used, then append it to the stackName
+try {
+    var stackNameSuffix = process.env.PIPELINE_NAME.match(/-([^-]+)$/g)[0];
+    if(stackNameSuffix) {
+        stackName += stackNameSuffix
+    }
+} catch (e) {}
+console.log("STACK NAME = "+stackName);
+console.log("REGION = "+region);
+
 
 // add gulp tasks for app
 app.registerTasks(gulp,{
@@ -36,7 +47,8 @@ pipeline.registerTasks(gulp, {
     gulpDeployAppTask: 'app:lambda:upload',
     gulpDeploySiteTask: 'app:uploadSite',
     gulpDeployConfigTask: 'app:uploadConfig',
-    gulpFunctionalTestTask: 'test-functional'
+    gulpFunctionalTestTask: 'test-functional',
+    gulpProductionDNSTask: 'prodDNS'
 });
 
 
@@ -83,7 +95,7 @@ gulp.task('lint', function(callback) {
     );
 });
 
-
-
+gulp.task('prodDNS',function() {
+})
 
 

@@ -255,6 +255,10 @@ exports.registerTasks = function ( gulp, opts ) {
                 TemplateURL: s3BucketURL+"/main.json"
             };
 
+            if(action == 'createStack' && process.env.PIPELINE_NAME) {
+                params['Tags'] = [{"Key":"PipelineName","Value":process.env.PIPELINE_NAME}]
+            }
+
             cloudFormation[action](params, function(err) {
                 if (err) {
                     throw err;

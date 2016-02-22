@@ -65,15 +65,8 @@ function handlePromise(promise, event, context) {
         });
     }).catch( function(message) {
         var userParams = querystring.parse( event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters );
-        var retrys = parseInt(userParams['retrys']);
-        if(isNaN(retrys)) {
-            retrys = 0;
-        }
-
-        var continuationToken = parseInt(event["CodePipeline.job"].data.continuationToken);
-        if(isNaN(continuationToken)) {
-            continuationToken = 0;
-        }
+        var retrys = parseInt(userParams['retrys']) || 0
+        var continuationToken = parseInt(event["CodePipeline.job"].data.continuationToken) || 0;
 
 
         console.log("Prior attempts="+continuationToken+" and retrys="+retrys);
@@ -160,8 +153,10 @@ function gulpAction(jobDetails) {
         }).then(function () {
             return installNpm(artifactExtractPath);
         }).then(function () {
+            return getJobDetails(jobDetails.id)
+        }).then(function (jd) {
             var taskName = userParams['task'];
-            return runGulp(artifactExtractPath, taskName, retrys);
+            return runGulp(artifactExtractPath, taskName, jd.data.pipelineContext.pipelineName);
         });
 }
 
@@ -370,13 +365,14 @@ function runNpm(packageDirectory, subcommand) {
 // run gulp
 //
 // return: promise
-function runGulp(packageDirectory, task) {
+function runGulp(packageDirectory, task, pipelineName) {
 
     console.log("Running gulp task '" + task + "' in '"+packageDirectory+"'");
     // clone the env, append npm to path
     var envCopy = {};
     for (var e in process.env) envCopy[e] = process.env[e];
     envCopy['PATH'] += (':'+packageDirectory+'/node_modules/.bin/');
+    envCopy['PIPELINE_NAME'] = pipelineName;
     console.log("PATH: "+envCopy['PATH']);
     return exec('node '+packageDirectory+'/node_modules/gulp/bin/gulp.js --no-color '+task,{cwd: packageDirectory, env: envCopy});
 }
