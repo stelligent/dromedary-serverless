@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion":"2010-09-09",
-  "Description":"Master dromedary stack that calls nested stacks",
+  "Description":"Master pipeline stack that calls nested stacks",
   "Parameters":{
     "TemplateBucketName":{
       "Type":"String",
@@ -595,6 +595,9 @@
     },
     "ArtifactBucket": {
       "Value": { "Ref": "ArtifactBucket" }
+    },
+    "PipelineName": {
+      "Value": { "Ref": "DromedaryPipeline" }
     }
   }
 }

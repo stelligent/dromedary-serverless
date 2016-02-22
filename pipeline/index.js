@@ -318,6 +318,65 @@ exports.registerTasks = function ( gulp, opts ) {
             console.log('Use gulp pipeline:log to view full event log');
         });
     });
+    gulp.task(taskPrefix+':stacks', function(cb) {
+        getStack(stackName,function(err, stack) {
+            if (err) {
+                cb(err);
+            } else if (!stack) {
+                cb();
+            } else {
+                var pipelineName = stack.Outputs.filter(function (o) { return o.OutputKey == 'PipelineName' })[0].OutputValue;
+                cloudFormation.describeStacks({}, function(err, data) {
+                    if (err) {
+                        cb(err);
+                    } else if(data.Stacks == null) {
+                        cb(null,null);
+                    } else {
+                        var stackNames = [];
+                        var stacks = data.Stacks.filter(function(s) {
+                            if(!s.Tags) {
+                                return false;
+                            }
+
+
+                            // check if the pipeline name tag matches
+                            var match = s.Tags.filter(function(t) { return (t.Key == 'PipelineName' && t.Value == pipelineName); }).length > 0;
+                            if(match) {
+                                stackNames.push(s.StackName);
+                            }
+                            return match;
+                        });
+
+                        if(!stacks || !stacks.length) {
+                            console.log("No stacks defined with Tag 'PipelineName' == "+pipelineName);
+                        } else {
+                            stacks.forEach(function(s) {
+                                // check if this is a sub-stack
+                                if(stackNames.filter(function (stackName) {
+                                        return (stackName.length < s.StackName.length && s.StackName.indexOf(stackName) == 0);
+                                }).length > 0) {
+                                    return;
+                                }
+
+
+                                var appVersion;
+                                try {
+                                    appVersion = s.Tags.filter(function(t) { return (t.Key == 'ApplicationVersion'); })[0].Value;
+                                } catch (e) {}
+
+                                var appName;
+                                try {
+                                    appName = s.Tags.filter(function (t) { return (t.Key == 'ApplicationName'); })[0].Value;
+                                } catch (e) {}
+                                console.log("Name("+ s.StackName+") Status("+ s.StackStatus+") Created("+ s.CreationTime+") AppName("+appName+") AppVersion("+appVersion+")");
+                            });
+                        }
+                    }
+                    return cb();
+                });
+            }
+        });
+    });
 
     gulp.task(taskPrefix+':log', function() {
         return getStack(stackName, function(err, stack) {

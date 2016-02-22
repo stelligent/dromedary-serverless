@@ -262,12 +262,12 @@ exports.registerTasks = function ( gulp, opts ) {
                     params['Tags'].push({"Key":"PipelineName","Value":process.env.PIPELINE_NAME});
                 }
 
-                if(opts.appName) {
-                    params['Tags'].push({"Key":"ApplicationName","Value":opts.appName});
+                if(opts.applicationName) {
+                    params['Tags'].push({"Key":"ApplicationName","Value":opts.applicationName});
                 }
 
-                if(opts.appVersion) {
-                    params['Tags'].push({"Key":"ApplicationVersion","Value":opts.appVersion});
+                if(opts.applicationVersion) {
+                    params['Tags'].push({"Key":"ApplicationVersion","Value":opts.applicationVersion});
                 }
             }
 
@@ -408,22 +408,42 @@ exports.registerTasks = function ( gulp, opts ) {
             } else if(data.Stacks == null) {
                 cb(null,null);
             } else {
+                var stackNames = [];
                 var stacks = data.Stacks.filter(function(s) {
                     if(!s.Tags) {
                         return false;
                     }
 
                     // check if the app name tag matches
-                    return s.Tags.filter(function(t) { return (t.Key == 'ApplicationName' && t.Value == opts.applicationName); }).length > 0;
+                    var match = s.Tags.filter(function(t) { return (t.Key == 'ApplicationName' && t.Value == opts.applicationName); }).length > 0;
+                    if(match) {
+                        stackNames.push(s.StackName);
+                    }
+                    return match;
                 });
 
-                stacks.forEach(function(s) {
-                    console.log()
-                });
-                for (var i=0; i<data.Stacks.length; i++) {
-                    if (data.Stacks[i].StackName === stackName) {
-                        return cb(null, data.Stacks[i]);
-                    }
+                if(!stacks || !stacks.length) {
+                    console.log("No stacks defined with Tag 'ApplicationName' == "+opts.applicationName);
+                } else {
+                    stacks.forEach(function(s) {
+                        // check if this is a sub-stack
+                        if(stackNames.filter(function (stackName) {
+                                return (stackName.length < s.StackName.length && s.StackName.indexOf(stackName) == 0);
+                            }).length > 0) {
+                            return;
+                        }
+
+                        var appVersion;
+                        try {
+                            appVersion = s.Tags.filter(function(t) { return (t.Key == 'ApplicationVersion'); })[0].Value;
+                        } catch (e) {}
+
+                        var pipelineName;
+                        try {
+                            pipelineName = s.Tags.filter(function (t) { return (t.Key == 'PipelineName'); })[0].Value;
+                        } catch (e) {}
+                        console.log("Name("+ s.StackName+") Status("+ s.StackStatus+") Created("+ s.CreationTime+") Pipeline("+pipelineName+") AppVersion("+appVersion+")");
+                    });
                 }
             }
             return cb();
