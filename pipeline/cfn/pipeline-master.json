@@ -151,18 +151,14 @@
                 },
                 {
                   "Action":[
-                    "elasticbeanstalk:*",
-                    "ec2:*",
-                    "elasticloadbalancing:*",
-                    "autoscaling:*",
                     "cloudwatch:*",
                     "s3:*",
-                    "sns:*",
                     "cloudformation:*",
-                    "rds:*",
-                    "sqs:*",
-                    "ecs:*",
-                    "iam:PassRole"
+                    "apigateway:*",
+                    "lambda:*",
+                    "dynamodb:*",
+                    "iam:PassRole",
+                    "iam:CreateRole"
                   ],
                   "Resource":"*",
                   "Effect":"Allow"
