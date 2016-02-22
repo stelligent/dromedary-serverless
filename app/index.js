@@ -252,20 +252,23 @@ exports.registerTasks = function ( gulp, opts ) {
                         ParameterValue: siteBucket
                     },
                 ],
-                TemplateURL: s3BucketURL+"/main.json",
-                Tags: []
+                TemplateURL: s3BucketURL+"/main.json"
             };
 
-            if(action == 'createStack' && process.env.PIPELINE_NAME) {
-                params['Tags'].push({"Key":"PipelineName","Value":process.env.PIPELINE_NAME});
-            }
+            if(action == 'createStack') {
+                params['Tags'] = [];
 
-            if(opts.appName) {
-                params['Tags'].push({"Key":"ApplicationName","Value":opts.appName});
-            }
+                if(process.env.PIPELINE_NAME) {
+                    params['Tags'].push({"Key":"PipelineName","Value":process.env.PIPELINE_NAME});
+                }
 
-            if(opts.appVersion) {
-                params['Tags'].push({"Key":"ApplicationVersion","Value":opts.appVersion});
+                if(opts.appName) {
+                    params['Tags'].push({"Key":"ApplicationName","Value":opts.appName});
+                }
+
+                if(opts.appVersion) {
+                    params['Tags'].push({"Key":"ApplicationVersion","Value":opts.appVersion});
+                }
             }
 
             cloudFormation[action](params, function(err) {
@@ -395,6 +398,35 @@ exports.registerTasks = function ( gulp, opts ) {
                     console.log('Type='+resource.ResourceType+' LogicalId='+resource.LogicalResourceId+' PhysicalId='+resource.PhysicalResourceId+' Status='+resource.ResourceStatus)
                 });
             });
+        });
+    });
+
+    gulp.task(taskPrefix+':stacks', function(cb) {
+        cloudFormation.describeStacks({}, function(err, data) {
+            if (err) {
+                cb(err);
+            } else if(data.Stacks == null) {
+                cb(null,null);
+            } else {
+                var stacks = data.Stacks.filter(function(s) {
+                    if(!s.Tags) {
+                        return false;
+                    }
+
+                    // check if the app name tag matches
+                    return s.Tags.filter(function(t) { return (t.Key == 'ApplicationName' && t.Value == opts.applicationName); }).length > 0;
+                });
+
+                stacks.forEach(function(s) {
+                    console.log()
+                });
+                for (var i=0; i<data.Stacks.length; i++) {
+                    if (data.Stacks[i].StackName === stackName) {
+                        return cb(null, data.Stacks[i]);
+                    }
+                }
+            }
+            return cb();
         });
     });
 

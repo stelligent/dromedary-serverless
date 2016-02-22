@@ -27,9 +27,7 @@ Bring the pipeline up with `gulp pipeline:up --token=XXXXXXXXXXXXXXXXX`
 
 # Todo
 * Get PR approved: (https://github.com/andrew-templeton/cfn-api-gateway-integration-response/pull/2)
-* CFN for pipeline to:
-
- * build - via a lambda that calls `gulp lint test`
- * deploy - via a lambda that runs the app CFNs
- * test - via a lambda that calls `gulp test-functional`
- * production - via a lambda that calls `gulp` to update Route53
+* cleanup app CFN to make generic
+* tighten up IAM policies
+* Unique stack names, cleanup process
+* Production deployment in pipeline
