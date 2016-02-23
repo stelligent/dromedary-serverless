@@ -32,9 +32,11 @@ console.log("REGION      = "+region);
 // add gulp tasks for app
 app.registerTasks(gulp,{
     stackName: stackName,
+    region: region,
+    cfnBucket: 'dromedary-serverless-templates',
+
     applicationName: appName,
     applicationVersion: appVersion,
-    region: region,
     appSource: 'index.js',
     siteDirectory: 'node_modules/dromedary/public'
 });
@@ -43,6 +45,7 @@ app.registerTasks(gulp,{
 pipeline.registerTasks(gulp, {
     stackName: stackName + '-pipeline',
     region: region,
+    cfnBucket: 'dromedary-serverless-templates',
 
     githubToken: gutil.env.token,
     githubUser: 'stelligent',

@@ -17,7 +17,7 @@ exports.registerTasks = function ( gulp, opts ) {
     var lambda         = new AWS.Lambda();
 
     var stackName = opts.stackName || 'serverless-pipeline';
-    var cfnBucket = stackName+"-templates";
+    var cfnBucket = opts.cfnBucket || stackName + "-templates";
     var taskPrefix = opts.taskPrefix || 'pipeline';
     var dist       = (opts.dist || '/tmp/dist')+'/serverless-pipeline';
 
