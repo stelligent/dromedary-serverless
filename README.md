@@ -57,6 +57,9 @@ Or you can launch by using `gulp` in this repo:
 * To tear everything down, run `gulp pipeline:teardown`
 * By default, the stack name will be **dromedary-serverless-pipeline**.  You can change this by passing `--stackName=my-stack-name` to any of the above gulp commands.
 
+# Development
+To do local development of the CFN or Gulp tasks, you'll want to link in the submodules with `npm run-script submodules`
+
 # Todo
 * Tighten up IAM policies in CFN
 * Production deployment in pipeline

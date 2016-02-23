@@ -9,12 +9,31 @@
     },
     "SiteBucketName":{
       "Type":"String",
-      "Description":"The prefix to use for stage bucket names for static content",
+      "Description":"Unique name to use for bucket to serve static website content.",
       "Default":"dromedary-stateless-site"
     },
     "DDBTableName":{
       "Type":"String",
       "Description":"Unique name for the Dromedary Dynamo DB table"
+    }
+  },
+  "Metadata" : {
+    "AWS::CloudFormation::Interface" : {
+      "ParameterGroups" : [
+        {
+          "Label" : { "default" : "App Configuration" },
+          "Parameters" : [ "DDBTableName", "SiteBucketName" ]
+        },
+        {
+          "Label" : { "default":"CloudFormation Configuration" },
+          "Parameters" : [ "TemplateBucketName" ]
+        }
+      ],
+      "ParameterLabels" : {
+        "TemplateBucketName" : { "default" : "CFN Template Bucket Name" },
+        "SiteBucketName" : { "default" : "Website Bucket Name" },
+        "DDBTableName" : { "default" : "DynamoDB Table Name" }
+      }
     }
   },
   "Mappings" : {

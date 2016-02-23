@@ -15,6 +15,7 @@
   "bugs": {
     "url": "https://github.com/stelligent/dromedary-serverless/issues"
   },
+  "scripts": { "submodules" : "rm -rf node_modules/gulp-serverless-app && ln -s ../app node_modules/gulp-serverless-app && rm -rf node_modules/gulp-serverless-pipeline && ln -s ../pipeline node_modules/gulp-serverless-pipeline" },
   "homepage": "https://github.com/stelligent/dromedary-serverless#readme",
   "devDependencies": {
     "aws-sdk": "^2.2.34",

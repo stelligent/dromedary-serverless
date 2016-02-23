@@ -78,6 +78,41 @@
       "Default":"prodDNS"
     }
   },
+  "Metadata" : {
+    "AWS::CloudFormation::Interface" : {
+      "ParameterGroups" : [
+        {
+          "Label" : { "default" : "GitHub Configuration" },
+          "Parameters" : [ "GitHubToken","GitHubUser", "GitHubRepo", "GitHubBranch" ]
+        },
+        {
+          "Label" : { "default" : "Gulp Configuration" },
+          "Parameters" : [ "GulpStaticAnalysisTask", "GulpUnitTestTask","GulpLaunchTask","GulpWaitForReadyTask","GulpWaitForReadyRetries","GulpDeployAppTask","GulpDeploySiteTask","GulpDeployConfigTask","GulpFunctionalTestTask","GulpProductionDNSTask"]
+        },
+        {
+          "Label" : { "default":"CloudFormation Configuration" },
+          "Parameters" : [ "TemplateBucketName" ]
+        }
+      ],
+      "ParameterLabels" : {
+        "GitHubToken" : { "default" : "OAuth2 Token" },
+        "GitHubUser" : { "default" : "User Name" },
+        "GitHubRepo" : { "default" : "Repository Name" },
+        "GitHubBranch" : { "default" : "Branch Name" },
+        "GulpStaticAnalysisTask":{ "default": "Static Analysis Task"},
+        "GulpUnitTestTask":{ "default": "Unit Test Task"},
+        "GulpLaunchTask":{ "default": "Launch Task"},
+        "GulpWaitForReadyTask":{ "default": "Wait for Ready Task"},
+        "GulpWaitForReadyRetries":{ "default": "Wait for Ready Retries"},
+        "GulpDeployAppTask":{ "default": "Deploy App Task"},
+        "GulpDeploySiteTask": { "default": "Deploy Site Task"},
+        "GulpDeployConfigTask":{ "default": "Deploy Config Task"},
+        "GulpFunctionalTestTask": { "default": "Functional Test Task"},
+        "GulpProductionDNSTask":{ "default": "Production DNS Task"},
+        "TemplateBucketName" : { "default" : "CFN Template Bucket Name" }
+      }
+    }
+  },
   "Mappings" : {
     "EndpointMap" : {
       "us-east-1": {
