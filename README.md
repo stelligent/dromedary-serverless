@@ -1,5 +1,5 @@
 # Overview
-This project deploys [dromedary](https://github.com/stelligent/dromedary) in AWS Lambda with API Gateway as the interface to demonstrate serverless architecture..  It also demonstrates the use of CodePipeline with Lambdas to continuously deliver changes made in the source code in a serverless manner.
+This project deploys [dromedary](https://github.com/stelligent/dromedary) in AWS Lambda with API Gateway as the interface to demonstrate serverless architecture.  It also demonstrates the use of CodePipeline with Lambdas to continuously deliver changes made in the source code in a serverless manner.
 
 # Architecture Overview
 The application is split into 2 separate parts for deployment:
@@ -33,7 +33,7 @@ You can launch via the console: [![Launch App stack](https://s3.amazonaws.com/st
 
 Or you can launch by using `gulp` in this repo:
 
-* **PREREQUISITES -** You need Node.js installed.  If using a linux machine, you can run `sudo yum install nodejs npm --enablerepo=epel`, or for OS X, check out (nodejs.org)[https://nodejs.org/en/download/].  You'll also want to have gulp installed: `npm install -g gulp`
+* **PREREQUISITES -** You need Node.js installed.  If using a linux machine, you can run `sudo yum install nodejs npm --enablerepo=epel`, or for OS X, check out [nodejs.org](https://nodejs.org/en/download/).  You'll also want to have gulp installed: `npm install -g gulp`
 * Download this repo and then run `npm install` first to install all dependent modules.
 * To provision the AWS resources and deploy the app, just run `gulp app:launch`
 * You can run `gulp app:wait` to wait for the stack to come up, and then `gulp app:status` to get the outputs, including the application URL.
@@ -50,6 +50,8 @@ You can launch via the console: [![Launch Pipeline stack](https://s3.amazonaws.c
 
 Or you can launch by using `gulp` in this repo:
 
+* **PREREQUISITES -** You need Node.js installed.  If using a linux machine, you can run `sudo yum install nodejs npm --enablerepo=epel`, or for OS X, check out [nodejs.org](https://nodejs.org/en/download/).  You'll also want to have gulp installed: `npm install -g gulp`
+* Download this repo and then run `npm install` first to install all dependent modules.
 * Bring the pipeline up with `gulp pipeline:up --token=XXXXXXXXXXXXXXXXX`
 * You can run `gulp pipeline:wait` to wait for the stack to come up, and then `gulp pipeline:status` to get the outputs and `gulp pipeline:stacks` to see what applicaiton stacks the pipeline has currently running.
 * To tear everything down, run `gulp pipeline:teardown`
