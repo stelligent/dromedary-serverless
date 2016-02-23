@@ -495,7 +495,7 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
     function zipLambdaModule(moduleName, cb) {
-        return gulp.src(['node_modules/'+moduleName+'/**/*','!node_modules/'+moduleName+'/package.json','!**/aws-sdk{,/**}'])
+        return gulp.src([__dirname+'/node_modules/'+moduleName+'/**/*','!'+__dirname+'node_modules/'+moduleName+'/package.json','!**/aws-sdk{,/**}'])
             .pipe(zip(moduleName+'.zip'))
             .pipe(gulp.dest(dist+'/lambdas'))
             .pipe(gcallback(function() {
