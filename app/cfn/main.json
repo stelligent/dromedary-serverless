@@ -4,7 +4,8 @@
   "Parameters":{
     "TemplateBucketName":{
       "Type":"String",
-      "Description":"S3 bucket name for all the CloudFormation templates used in Dromedary."
+      "Description":"S3 bucket name for all the CloudFormation templates used in Dromedary.",
+      "Default": "dromedary-serverless-templates"
     },
     "SiteBucketName":{
       "Type":"String",

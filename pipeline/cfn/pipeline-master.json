@@ -4,7 +4,8 @@
   "Parameters":{
     "TemplateBucketName":{
       "Type":"String",
-      "Description":"S3 bucket name for all the CloudFormation templates used in the pipeline."
+      "Description":"S3 bucket name for all the CloudFormation templates used in the pipeline.",
+      "Default": "dromedary-serverless-templates"
     },
     "GitHubToken":{
       "NoEcho":"true",
@@ -19,7 +20,7 @@
     "GitHubRepo":{
       "Type":"String",
       "Description":"GitHub Repo to pull from. Only the Name. not the URL",
-      "Default":"dromedary"
+      "Default":"dromedary-serverless"
     },
     "GitHubBranch":{
       "Type":"String",
@@ -49,12 +50,12 @@
     "GulpWaitForReadyRetries":{
       "Type":"Number",
       "Description":"Number of times to wait for ready",
-      "Default":5
+      "Default":10
     },
     "GulpDeployAppTask":{
       "Type":"String",
       "Description":"Gulp task name for deploying application",
-      "Default":"app:uploadLambda"
+      "Default":"app:lambda:upload"
     },
     "GulpDeploySiteTask": {
       "Type": "String",
@@ -74,7 +75,7 @@
     "GulpProductionDNSTask":{
       "Type":"String",
       "Description":"Gulp task name for deploying application",
-      "Default":"cfn:updateDNS"
+      "Default":"prodDNS"
     }
   },
   "Mappings" : {
