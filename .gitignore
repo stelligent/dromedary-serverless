@@ -3,3 +3,4 @@ dist/
 dist.zip
 .idea/
 *.iml
+.DS_Store
