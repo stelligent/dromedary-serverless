@@ -27,19 +27,6 @@ Here's a sample of what the pipeline looks like in AWS CodePipeline console:
 ![pipeline-example](docs/codepipeline.png)
 
 
-# Launching App
-
-You can launch via the console: [![Launch App stack](https://s3.amazonaws.com/stelligent-training-public/public/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#cstack=sn~DromedaryServerless|turl~https://s3-us-west-2.amazonaws.com/dromedary-serverless-templates/main.json)
-
-Or you can launch by using `gulp` in this repo:
-
-* **PREREQUISITES -** You need Node.js installed.  If using a linux machine, you can run `sudo yum install nodejs npm --enablerepo=epel`, or for OS X, check out [nodejs.org](https://nodejs.org/en/download/).  You'll also want to have gulp installed: `npm install -g gulp`
-* Download this repo and then run `npm install` first to install all dependent modules.
-* To provision the AWS resources and deploy the app, just run `gulp app:launch`
-* You can run `gulp app:wait` to wait for the stack to come up, and then `gulp app:status` to get the outputs, including the application URL.
-* To tear everything down, run `gulp app:teardown`
-* By default, the stack name will be **dromedary-serverless**.  You can change this by passing `--stackName=my-stack-name` to any of the above gulp commands.
-
 # Launching Pipeline
 
 To integrate with GitHub, AWS CodePipeline uses OAuth tokens.  Generate your token at [GitHub](https://github.com/settings/tokens) and ensure you enable the following two scopes:
@@ -50,7 +37,10 @@ You can launch via the console: [![Launch Pipeline stack](https://s3.amazonaws.c
 
 Or you can launch by using `gulp` in this repo:
 
-* **PREREQUISITES -** You need Node.js installed.  If using a linux machine, you can run `sudo yum install nodejs npm --enablerepo=epel`, or for OS X, check out [nodejs.org](https://nodejs.org/en/download/).  You'll also want to have gulp installed: `npm install -g gulp`
+* **PREREQUISITES -** You need Node.js installed.  
+ * For a linux machine, you can run `yum groupinstall 'Development Tools'` and `curl -L https://npmjs.org/install.sh | sudo sh`
+ * For OS X, check out [nodejs.org](https://nodejs.org/en/download/).  
+ * You'll also want to have gulp installed: `sudo npm install -g gulp`
 * Download this repo and then run `npm install` first to install all dependent modules.
 * Bring the pipeline up with `gulp pipeline:up --token=XXXXXXXXXXXXXXXXX`
 * You can run `gulp pipeline:wait` to wait for the stack to come up, and then `gulp pipeline:status` to get the outputs and `gulp pipeline:stacks` to see what applicaiton stacks the pipeline has currently running.
