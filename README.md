@@ -7,7 +7,7 @@ The application is split into 2 separate parts for deployment:
 * **API** - deployed as a Lambda function using API Gateway for the front end.
 * **Static Content** - deployed into an S3 bucket with website hosting enabled.
 
-Additionally, a `config.json` file is generated and deployed into the S3 bucket containing the endpoint to use for the API in the API Gateway.
+Additionally, a `config.json` file is generated and deployed into the S3 bucket containing the endpoint to use for the API in API Gateway.
 
 ![app-overview](docs/app-overview.png)
 
