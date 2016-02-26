@@ -634,6 +634,23 @@
     },
     "PipelineName": {
       "Value": { "Ref": "ServerlessPipeline" }
+    },
+    "PipelineURL": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "https://console.aws.amazon.com/codepipeline/home?region=",
+            {
+              "Ref": "AWS::Region"
+            },
+            "#/view/",
+            {
+              "Ref": "ServerlessPipeline"
+            }
+          ]
+        ]
+      }
     }
   }
 }
