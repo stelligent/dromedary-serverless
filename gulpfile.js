@@ -45,7 +45,7 @@ app.registerTasks(gulp,{
 
 // add gulp tasks for pipeline
 pipeline.registerTasks(gulp, {
-    stackName: stackName + '-pipeline',
+    stackName: stackName,
     region: region,
     cfnBucket: cfnBucket,
 
