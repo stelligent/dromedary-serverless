@@ -16,8 +16,7 @@
     "url": "https://github.com/stelligent/dromedary-serverless/issues"
   },
   "scripts": {
-    "postinstall" : "cd app && npm install && cd ../pipeline && npm install",
-    "preinstall": "(mkdir node_modules || true) && (rm -rf node_modules/gulp-serverless-app || true) && ln -s ../app node_modules/gulp-serverless-app && (rm -rf node_modules/gulp-serverless-pipeline || true) && ln -s ../pipeline node_modules/gulp-serverless-pipeline"
+    "submodules": "(mkdir node_modules || true) && (rm -rf node_modules/gulp-serverless-app || true) && ln -s ../app node_modules/gulp-serverless-app && (rm -rf node_modules/gulp-serverless-pipeline || true) && ln -s ../pipeline node_modules/gulp-serverless-pipeline"
   },
   "homepage": "https://github.com/stelligent/dromedary-serverless#readme",
   "devDependencies": {

@@ -1,10 +1,8 @@
-var gulp        = require('gulp');
 var gcallback   = require('gulp-callback');
 var zip         = require('gulp-zip');
 var unzip       = require('gulp-unzip');
 var install     = require('gulp-install');
 var del         = require('del');
-var runSequence = require('run-sequence');
 var AWS         = require('aws-sdk');
 var fs          = require('fs');
 var mime        = require('mime');
@@ -38,6 +36,7 @@ exports.getStack = function () {
 
 
 exports.registerTasks = function ( gulp, opts ) {
+    var runSequence = require('run-sequence').use(gulp);
     stackName = opts.stackName || 'serverless-app';
 
     // AWS services
