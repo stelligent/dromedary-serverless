@@ -50,6 +50,12 @@ Or you can launch by using `gulp` in this repo:
 # Development
 To do local development of the CFN or Gulp tasks, you'll want to link in the submodules with `npm run-script submodules`
 
+To publish your app template changes, run `gulp app:cfn:publish`.  You will likely want to choose a different bucket to publish the templates and lambda code to via the `--templateBucket` argument.   Be sure to then reference that same bucket name in your gulpfile.js for `cfnBucket`.
+
+To publish your pipeline template/lambda changes, run `gulp pipeline:cfn:publish`.  You will likely want to choose a different bucket to publish the templates and lambda code to via the `--templateBucket` argument.   Be sure to then reference that same bucket name when you `pipeline:up`.
+
+
+
 # Todo
 * Tighten up IAM policies in CFN
 * Production deployment in pipeline

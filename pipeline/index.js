@@ -98,7 +98,7 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
     // Tasks to provision the pipeline
-    gulp.task(taskPrefix+':templatesBucket', function(cb) {
+    gulp.task(taskPrefix+':cfn:templatesBucket', function(cb) {
         s3.headBucket({ Bucket: cfnBucket }, function(err, data) {
             if (err) {
                 if(err.statusCode == 404) {
@@ -125,7 +125,7 @@ exports.registerTasks = function ( gulp, opts ) {
         });
     });
 
-    gulp.task(taskPrefix+':templates',[taskPrefix+':templatesBucket'], function(cb) {
+    gulp.task(taskPrefix+':cfn:templates',[taskPrefix+':cfn:templatesBucket'], function(cb) {
         var complete = 0;
         var dirs = [__dirname+'/cfn'];
         dirs.forEach(function(dir) {
@@ -142,7 +142,7 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
 
-    gulp.task(taskPrefix+':lambda:uploadS3', [taskPrefix+':lambda:zip',taskPrefix+':templatesBucket'], function(cb) {
+    gulp.task(taskPrefix+':lambda:uploadS3', [taskPrefix+':lambda:zip',taskPrefix+':cfn:templatesBucket'], function(cb) {
         var path = dist+'/pipeline-lambda.zip';
         var params = {
             Bucket: cfnBucket,
@@ -161,7 +161,10 @@ exports.registerTasks = function ( gulp, opts ) {
         });
     });
 
-    gulp.task(taskPrefix+':up',[taskPrefix+':templates',taskPrefix+':lambda:uploadS3'],  function() {
+    gulp.task(taskPrefix+':cfn:publish',[taskPrefix+':cfn:templates',taskPrefix+':lambda:uploadS3'],  function() {
+    });
+
+    gulp.task(taskPrefix+':up',  function(cb) {
         return getStack(stackName, function(err, stack) {
             var action, status = stack && stack.StackStatus;
             if (!status || status === 'DELETE_COMPLETE') {
@@ -248,10 +251,12 @@ exports.registerTasks = function ( gulp, opts ) {
 
             cloudFormation[action](params, function(err) {
                 if (err) {
-                    throw err;
+                    cb(err);
+                } else {
+                    var a = action === 'createStack' ? 'creation' : 'update';
+                    console.log('Stack ' + a + ' in progress.');
+                    cb();
                 }
-                var a = action === 'createStack' ? 'creation' : 'update';
-                console.log('Stack ' + a + ' in progress.');
             });
         });
     });

@@ -11,8 +11,10 @@ var pjson       = require('./package.json');
 
 var appName    = pjson.name;
 var appVersion = pjson.version;
-var stackName  =  (gutil.env.stackName || appName);
+var stackName  = (gutil.env.stackName || appName);
+var cfnBucket  = (gutil.env.templateBucket || 'dromedary-serverless-templates');
 var region = (gutil.env.region || process.env.AWS_DEFAULT_REGION || 'us-west-2');
+
 
 // if a PIPELINE_NAME is used, then append it to the stackName
 try {
@@ -33,7 +35,7 @@ console.log("REGION      = "+region);
 app.registerTasks(gulp,{
     stackName: stackName,
     region: region,
-    cfnBucket: 'dromedary-serverless-templates',
+    cfnBucket: cfnBucket,
 
     applicationName: appName,
     applicationVersion: appVersion,
@@ -45,7 +47,7 @@ app.registerTasks(gulp,{
 pipeline.registerTasks(gulp, {
     stackName: stackName + '-pipeline',
     region: region,
-    cfnBucket: 'dromedary-serverless-templates',
+    cfnBucket: cfnBucket,
 
     githubToken: gutil.env.token,
     githubUser: 'stelligent',

@@ -152,7 +152,7 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
     //CloudFormation tasks
-    gulp.task(taskPrefix+':templatesBucket', function(cb) {
+    gulp.task(taskPrefix+':cfn:templatesBucket', function(cb) {
         s3.headBucket({ Bucket: cfnBucket }, function(err, data) {
             if (err) {
                 if(err.statusCode == 404) {
@@ -179,7 +179,7 @@ exports.registerTasks = function ( gulp, opts ) {
         });
     });
 
-    gulp.task(taskPrefix+':templates',[taskPrefix+':templatesBucket'], function(cb) {
+    gulp.task(taskPrefix+':cfn:templates',[taskPrefix+':cfn:templatesBucket'], function(cb) {
         var complete = 0;
         var dirs = [__dirname+'/cfn'];
         dirs.forEach(function(dir) {
@@ -194,7 +194,7 @@ exports.registerTasks = function ( gulp, opts ) {
             });
         });
     });
-    gulp.task(taskPrefix+':customResources', [taskPrefix+':templatesBucket'], function(cb) {
+    gulp.task(taskPrefix+':cfn:customResources', [taskPrefix+':cfn:templatesBucket'], function(cb) {
         var lambdaModules = [
             'cfn-api-gateway-restapi',
             'cfn-api-gateway-resource',
@@ -212,16 +212,25 @@ exports.registerTasks = function ( gulp, opts ) {
                 if(err) {
                     cb(err);
                 } else {
-                    if(++complete >= lambdaModules.length) {
-                        uploadToS3(dist+'/lambdas/',cfnBucket, cb);
+                    if (++complete >= lambdaModules.length) {
+                        uploadToS3(dist+'/lambdas/',cfnBucket, function(err) {
+                            if(err) {
+                                cb(err);
+                            } else {
+                                cb();
+                            }
+                        });
                     }
                 }
             });
         });
     });
 
+    gulp.task(taskPrefix+':cfn:publish',[taskPrefix+':cfn:templates',taskPrefix+':cfn:customResources'],  function() {
 
-    gulp.task(taskPrefix+':up',[taskPrefix+':templates',taskPrefix+':customResources'],  function() {
+    });
+
+    gulp.task(taskPrefix+':up', function() {
         return getStack(stackName, function(err, stack) {
             var action, status = stack && stack.StackStatus;
             if (!status || status === 'DELETE_COMPLETE') {
