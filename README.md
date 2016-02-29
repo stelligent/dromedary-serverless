@@ -37,10 +37,10 @@ You can launch via the console: [![Launch Pipeline stack](https://s3.amazonaws.c
 
 Or you can launch by using `gulp` in this repo:
 
-* **PREREQUISITES -** You need Node.js installed.  
- * For a linux machine, you can run `sudo yum groupinstall 'Development Tools'` and `curl -L https://npmjs.org/install.sh | sudo sh`
- * For OS X, check out [nodejs.org](https://nodejs.org/en/download/).  
- * You'll also want to have gulp installed: `sudo npm install -g gulp`
+* **PREREQUISITES -** You need Node.js installed.
+  * Install Node.js: `sudo yum install nodejs npm --enablerepo=epel` (For OS X, check out [nodejs.org](https://nodejs.org/en/download/))
+  * Update NPM: `curl -L https://npmjs.org/install.sh | sudo sh`
+  * Install Gulp: `sudo npm install -g gulp`
 * Download this repo and then run `npm install` first to install all dependent modules.
 * Bring the pipeline up with `gulp pipeline:up --token=XXXXXXXXXXXXXXXXX`
 * You can run `gulp pipeline:wait` to wait for the stack to come up, and then `gulp pipeline:status` to get the outputs and `gulp pipeline:stacks` to see what applicaiton stacks the pipeline has currently running.
