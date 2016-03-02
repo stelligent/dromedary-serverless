@@ -108,7 +108,7 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
     gulp.task(taskPrefix+':uploadSite', function(cb) {
-        uploadToS3(siteDirectory, siteBucket, cb);
+        uploadToS3(siteDirectory, siteBucket, true, cb);
     });
     gulp.task(taskPrefix+':uploadConfig', function(cb) {
         getStack(stackName,function(err, stack) {
@@ -133,6 +133,8 @@ exports.registerTasks = function ( gulp, opts ) {
                         Bucket: siteBucket,
                         Key: 'config.json',
                         ACL: 'public-read',
+                        CacheControl: 'no-cache, no-store, must-revalidate',
+                        Expires: 0,
                         ContentType: 'application/javascript',
                         Body: JSON.stringify(config)
                     }
@@ -182,7 +184,7 @@ exports.registerTasks = function ( gulp, opts ) {
         var complete = 0;
         var dirs = [__dirname+'/cfn'];
         dirs.forEach(function(dir) {
-            uploadToS3(dir,cfnBucket,function(err) {
+            uploadToS3(dir,cfnBucket,false, function(err) {
                 if(err) {
                     cb(err);
                 } else {
@@ -212,7 +214,7 @@ exports.registerTasks = function ( gulp, opts ) {
                     cb(err);
                 } else {
                     if (++complete >= lambdaModules.length) {
-                        uploadToS3(dist+'/lambdas/',cfnBucket, function(err) {
+                        uploadToS3(dist+'/lambdas/',cfnBucket, false, function(err) {
                             if(err) {
                                 cb(err);
                             } else {
@@ -553,7 +555,7 @@ exports.registerTasks = function ( gulp, opts ) {
             }
         });
     }
-    function uploadToS3(dir,bucket,cb) {
+    function uploadToS3(dir,bucket,nocache, cb) {
         var files = fs.readdirSync(dir);
         var respCount = 0;
         for (var i in files){
@@ -566,6 +568,11 @@ exports.registerTasks = function ( gulp, opts ) {
                     ACL: 'public-read',
                     ContentType: mime.lookup(path),
                     Body: fs.readFileSync(path)
+                }
+
+                if(nocache) {
+                    params['CacheControl'] = 'no-cache, no-store, must-revalidate';
+                    params['Expires'] =  0;
                 }
 
                 s3.putObject(params, function(err, data) {

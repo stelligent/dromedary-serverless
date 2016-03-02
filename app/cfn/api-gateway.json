@@ -187,8 +187,8 @@
       "Type": "Custom::ApiGatewayRestApi",
       "Properties": {
         "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayRestApi", "Arn" ] },
-        "Name": "DromedaryApi",
-        "Description": "Dromedary"
+        "Name": { "Fn::Join":["-",["Api",{"Ref":"AWS::StackName"}]]},
+        "Description": "REST Api"
       }
     },
 
