@@ -1,7 +1,6 @@
 var gulp        = require('gulp');
 var gutil       = require('gulp-util');
 var runSequence = require('run-sequence');
-var app         = require('gulp-serverless-app');
 var pipeline    = require('gulp-serverless-pipeline');
 
 var jshint      = require('gulp-jshint'); // copied from dromedary
@@ -30,18 +29,6 @@ console.log("APP VERSION = "+appVersion);
 console.log("STACK NAME  = "+stackName);
 console.log("REGION      = "+region);
 
-
-// add gulp tasks for app
-app.registerTasks(gulp,{
-    stackName: stackName,
-    region: region,
-    cfnBucket: cfnBucket,
-
-    applicationName: appName,
-    applicationVersion: appVersion,
-    appSource: 'index.js',
-    siteDirectory: 'node_modules/dromedary/public'
-});
 
 // add gulp tasks for pipeline
 pipeline.registerTasks(gulp, {
