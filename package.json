@@ -4,7 +4,7 @@
   "description": "- Deploy dromedary to AWS Lambda",
   "main": "app.js",
   "scripts": {
-    "test": "./node_modules/.bin/gulp test"
+    "submodules": "(mkdir node_modules || true) && (rm -rf node_modules/gulp-serverless-app || true) && ln -s ../app node_modules/gulp-serverless-app && (rm -rf node_modules/gulp-serverless-pipeline || true) && ln -s ../pipeline node_modules/gulp-serverless-pipeline"
   },
   "repository": {
     "type": "git",
@@ -14,9 +14,6 @@
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/stelligent/dromedary-serverless/issues"
-  },
-  "scripts": {
-    "submodules": "(mkdir node_modules || true) && (rm -rf node_modules/gulp-serverless-app || true) && ln -s ../app node_modules/gulp-serverless-app && (rm -rf node_modules/gulp-serverless-pipeline || true) && ln -s ../pipeline node_modules/gulp-serverless-pipeline"
   },
   "homepage": "https://github.com/stelligent/dromedary-serverless#readme",
   "devDependencies": {
@@ -49,6 +46,6 @@
   },
   "dependencies": {
     "dromedary": "https://github.com/stelligent/dromedary/archive/serverless.tar.gz",
-    "lambda-express": "file:app/lambda"
+    "lambda-express": "^0.1.0"
   }
 }
