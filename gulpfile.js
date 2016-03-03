@@ -94,6 +94,8 @@ gulp.task('package-app', ['lint-app','unit-test','dist-app'], function () {
 });
 
 gulp.task('package-swagger', function() {
+    return gulp.src('swagger.json')
+        .pipe(gulp.dest('dist/'));
 });
 
 gulp.task('package',['package-site','package-app','package-swagger'],  function() {
