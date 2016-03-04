@@ -41,6 +41,6 @@
   },
   "dependencies": {
     "dromedary": "https://github.com/stelligent/dromedary/archive/serverless.tar.gz",
-    "lambda-express": "^0.1.1"
+    "lambda-express": "https://github.com/cplee/lambda-express/archive/master.tar.gz"
   }
 }
