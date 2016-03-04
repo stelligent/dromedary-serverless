@@ -33,7 +33,7 @@ To integrate with GitHub, AWS CodePipeline uses OAuth tokens.  Generate your tok
 * `admin:repo_hook`, which is used to detect when you have committed and pushed changes to the repository
 * `repo`, which is used to read and pull artifacts from public and private repositories into a pipeline
 
-You can launch via the console: [![Launch Pipeline stack](https://s3.amazonaws.com/stelligent-training-public/public/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#cstack=sn~dromedary-serverless-pipeline|turl~https://s3-us-west-2.amazonaws.com/dromedary-serverless-templates/pipeline-master.json)
+You can launch via the console: [![Launch Pipeline stack](https://s3.amazonaws.com/stelligent-training-public/public/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#cstack=sn~dromedary-serverless|turl~https://s3-us-west-2.amazonaws.com/dromedary-serverless-templates/master.json)
 
 Or you can launch by using `gulp` in this repo:
 
@@ -45,19 +45,10 @@ Or you can launch by using `gulp` in this repo:
 * Bring the pipeline up with `gulp pipeline:up --token=XXXXXXXXXXXXXXXXX`
 * You can run `gulp pipeline:wait` to wait for the stack to come up, and then `gulp pipeline:status` to get the outputs and `gulp pipeline:stacks` to see what applicaiton stacks the pipeline has currently running.
 * To tear everything down, run `gulp pipeline:teardown`
-* By default, the stack name will be **dromedary-serverless-pipeline**.  You can change this by passing `--stackName=my-stack-name` to any of the above gulp commands.
+* By default, the stack name will be **dromedary-serverless**.  You can change this by passing `--stackName=my-stack-name` to any of the above gulp commands.
 
 # Development
-To do local development of the CFN or Gulp tasks, you'll want to link in the submodules with `npm run-script submodules`
-
-To publish your app template changes, run `gulp app:cfn:publish`.  You will likely want to choose a different bucket to publish the templates and lambda code to via the `--templateBucket` argument.   Be sure to then reference that same bucket name in your gulpfile.js for `cfnBucket`.
-
-To publish your pipeline template/lambda changes, run `gulp pipeline:cfn:publish`.  You will likely want to choose a different bucket to publish the templates and lambda code to via the `--templateBucket` argument.   Be sure to then reference that same bucket name when you `pipeline:up`.
-
-
+To publish pipeline template/lambda changes, run `gulp publish`.  You may want to choose a different bucket to publish the templates and lambda code to via the `--templateBucket` argument.
 
 # Todo
 * Tighten up IAM policies in CFN
-* Production deployment in pipeline
-* Extract out `/app` directory to generic module named `gulp-serverless-app` to enable running Express Node.js apps in AWS with Lambda and API Gateway.
-* Extract out `/pipeline` directory to generic module named `gulp-serverless-pipeline` to enable running CodePipeline with Gulp for other applications.
