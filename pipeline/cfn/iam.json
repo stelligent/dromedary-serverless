@@ -1,0 +1,315 @@
+{
+  "AWSTemplateFormatVersion":"2010-09-09",
+  "Description":"iam roles & policies and instance-profiles",
+  "Resources":{
+    "AppLambdaTrustRole":{
+      "Type":"AWS::IAM::Role",
+      "Properties":{
+        "AssumeRolePolicyDocument":{
+          "Statement":[
+            {
+              "Sid":"1",
+              "Effect":"Allow",
+              "Principal":{
+                "Service":[
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action":"sts:AssumeRole"
+            }
+          ]
+        },
+        "Path":"/",
+        "Policies":[
+          {
+            "PolicyName": "AppLambdaPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Action": [
+                    "dynamodb:DeleteItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:Query",
+                    "dynamodb:Scan",
+                    "dynamodb:BatchGetItem",
+                    "dynamodb:BatchWriteItem",
+                    "dynamodb:UpdateItem"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
+                },
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "CodePipelineRole":{
+      "Type":"AWS::IAM::Role",
+      "Properties":{
+        "AssumeRolePolicyDocument":{
+          "Statement":[
+            {
+              "Sid":"1",
+              "Effect":"Allow",
+              "Principal":{
+                "Service":[
+                  "codepipeline.amazonaws.com"
+                ]
+              },
+              "Action":"sts:AssumeRole"
+            }
+          ]
+        },
+        "Path":"/",
+        "Policies":[
+          {
+            "PolicyName":"CodePipelinePolicy",
+            "PolicyDocument":{
+              "Version":"2012-10-17",
+              "Statement":[
+                {
+                  "Action":[
+                    "s3:GetObject",
+                    "s3:GetObjectVersion",
+                    "s3:GetBucketVersioning"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                },
+                {
+                  "Action":[
+                    "s3:PutObject"
+                  ],
+                  "Resource":[
+                    "arn:aws:s3:::codepipeline*"
+                  ],
+                  "Effect":"Allow"
+                },
+                {
+                  "Action":[
+                    "cloudwatch:*",
+                    "s3:*",
+                    "cloudformation:*",
+                    "iam:PassRole"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                },
+                {
+                  "Action":[
+                    "lambda:InvokeFunction",
+                    "lambda:ListFunctions"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "CodePipelineLambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "LambdaPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:*"
+                  ],
+                  "Resource": [
+                    "arn:aws:logs:*:*:*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "codepipeline:GetJobDetails",
+                    "codepipeline:PutJobSuccessResult",
+                    "codepipeline:PutJobFailureResult"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Action":[
+                    "s3:*",
+                    "apigateway:*",
+                    "lambda:*",
+                    "dynamodb:*",
+                    "cloudformation:*",
+                    "iam:*"
+                  ],
+                  "Resource":"*",
+                  "Effect":"Allow"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ApiGatewayCfnLambdaRole":{
+      "Type":"AWS::IAM::Role",
+      "Properties":{
+        "AssumeRolePolicyDocument":{
+          "Statement":[
+            {
+              "Sid":"1",
+              "Effect":"Allow",
+              "Principal":{
+                "Service":[
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action":"sts:AssumeRole"
+            }
+          ]
+        },
+        "Path":"/",
+        "Policies":[
+          {
+            "PolicyName": "LambdaPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "arn:aws:logs:*:*:*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "apigateway:*"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Resource": [
+                    { "Fn::GetAtt": [ "ApiIntegrationCredentialsRole", "Arn" ] }
+                  ],
+                  "Action": [
+                    "iam:PassRole"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ApiIntegrationCredentialsRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "apigateway.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "ApiGatewayIntegrationLambda",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "lambda:InvokeFunction",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs":{
+    "AppLambdaRoleArn":{
+      "Description":"The ARN of the Application Lambda Trust Role, which is needed to configure Lambda Function",
+      "Value":{
+        "Fn::GetAtt":[ "AppLambdaTrustRole", "Arn" ]
+      }
+    },
+    "CodePipelineRoleArn":{
+      "Description":"The ARN of the Pipeline Trust Role, which is needed to configure Pipeline",
+      "Value":{
+        "Fn::GetAtt":[ "CodePipelineRole", "Arn" ]
+      }
+    },
+    "CodePipelineLambdaRoleArn":{
+      "Description":"The ARN of the Pipeline custom action role, which is needed to configure Pipeline custom actions",
+      "Value":{
+        "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ]
+      }
+    },
+    "ApiGatewayCfnLambdaRole":{
+      "Description":"The ARN of the Lambda Trust Role, which is needed by the custom resources for api gateway",
+      "Value":{
+        "Fn::GetAtt":[ "ApiGatewayCfnLambdaRole", "Arn" ]
+      }
+    },
+    "ApiIntegrationCredentialsRole":{
+      "Description":"The ARN of the role that API Gateway assumes for running lambda app",
+      "Value":{
+        "Fn::GetAtt":[ "ApiIntegrationCredentialsRole", "Arn" ]
+      }
+    }
+  }
+}

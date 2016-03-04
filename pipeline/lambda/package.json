@@ -1,0 +1,23 @@
+{
+  "name": "serverless-pipeline-actions",
+  "version": "0.1.0",
+  "description": "Lambda to run gulp within codepipeline",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/cplee/serverless-pipeline.git"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.2.36",
+    "fstream": "^1.0.8",
+    "mime": "^1.3.4",
+    "mkdirp": "^0.5.1",
+    "moment": "^2.11.2",
+    "npm": "^2.0",
+    "path": "^0.12.7",
+    "promise": "^7.1.1",
+    "tar": "^2.2.1",
+    "yauzl": "^2.4.1"
+  }
+}

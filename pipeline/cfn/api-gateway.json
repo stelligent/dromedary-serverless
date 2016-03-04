@@ -1,0 +1,344 @@
+{
+  "AWSTemplateFormatVersion":"2010-09-09",
+  "Description":"apigateway for the application",
+  "Parameters":{
+    "BucketName":{
+      "Type":"String",
+      "Description":"The name of the bucket to install lambdas from"
+    },
+    "TestAppLambdaName":{
+      "Type":"String",
+      "Description":"The name of the test lambda to integrate the gateway with"
+    },
+    "ProdAppLambdaName":{
+      "Type":"String",
+      "Description":"The name of the prod lambda to integrate the gateway with"
+    },
+    "TestDDBTableName":{
+      "Type":"String",
+      "Description":"The DynamoDB table name for test stage"
+    },
+    "ProdDDBTableName":{
+      "Type":"String",
+      "Description":"The DynamoDB table name for prod stage"
+    },
+    "ApiGatewayCfnLambdaRole":{
+      "Type":"String",
+      "Description":"Role used by the CFN lambda for creating api gateway resources"
+    },
+    "ApiIntegrationCredentialsRole": {
+      "Type":"String",
+      "Description":"Role used by api gateway for calling app lambda function"
+    }
+  },
+  "Resources" : {
+    "ApiGatewayRestApi": {
+      "Type" : "AWS::Lambda::Function",
+      "Properties" : {
+        "Code" : {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": "cfn-api-gateway-restapi.zip"
+        },
+        "Description" : "Custom CFN Lambda",
+        "Handler" : "index.handler",
+        "MemorySize" : 128,
+        "Timeout" : 300,
+        "Role" : { "Ref": "ApiGatewayCfnLambdaRole" },
+        "Runtime" : "nodejs"
+      }
+    },
+    "ApiGatewayResource": {
+      "Type" : "AWS::Lambda::Function",
+      "Properties" : {
+        "Code" : {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": "cfn-api-gateway-resource.zip"
+        },
+        "Description" : "Custom CFN Lambda",
+        "Handler" : "index.handler",
+        "MemorySize" : 128,
+        "Timeout" : 300,
+        "Role" : { "Ref": "ApiGatewayCfnLambdaRole" },
+        "Runtime" : "nodejs"
+      }
+    },
+    "ApiGatewayMethod": {
+      "Type" : "AWS::Lambda::Function",
+      "Properties" : {
+        "Code" : {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": "cfn-api-gateway-method.zip"
+        },
+        "Description" : "Custom CFN Lambda",
+        "Handler" : "index.handler",
+        "MemorySize" : 128,
+        "Timeout" : 300,
+        "Role" : { "Ref": "ApiGatewayCfnLambdaRole" },
+        "Runtime" : "nodejs"
+      }
+    },
+    "ApiGatewayMethodResponse": {
+      "Type" : "AWS::Lambda::Function",
+      "Properties" : {
+        "Code" : {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": "cfn-api-gateway-method-response.zip"
+        },
+        "Description" : "Custom CFN Lambda",
+        "Handler" : "index.handler",
+        "MemorySize" : 128,
+        "Timeout" : 300,
+        "Role" : { "Ref": "ApiGatewayCfnLambdaRole" },
+        "Runtime" : "nodejs"
+      }
+    },
+    "ApiGatewayIntegration": {
+      "Type" : "AWS::Lambda::Function",
+      "Properties" : {
+        "Code" : {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": "cfn-api-gateway-integration.zip"
+        },
+        "Description" : "Custom CFN Lambda",
+        "Handler" : "index.handler",
+        "MemorySize" : 128,
+        "Timeout" : 300,
+        "Role" : { "Ref": "ApiGatewayCfnLambdaRole" },
+        "Runtime" : "nodejs"
+      }
+    },
+    "ApiGatewayIntegrationResponse": {
+      "Type" : "AWS::Lambda::Function",
+      "Properties" : {
+        "Code" : {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": "cfn-api-gateway-integration-response.zip"
+        },
+        "Description" : "Custom CFN Lambda",
+        "Handler" : "index.handler",
+        "MemorySize" : 128,
+        "Timeout" : 300,
+        "Role" : { "Ref": "ApiGatewayCfnLambdaRole" },
+        "Runtime" : "nodejs"
+      }
+    },
+    "ApiGatewayDeployment": {
+      "Type" : "AWS::Lambda::Function",
+      "Properties" : {
+        "Code" : {
+          "S3Bucket": { "Ref": "BucketName"},
+          "S3Key": "cfn-api-gateway-deployment.zip"
+        },
+        "Description" : "Custom CFN Lambda",
+        "Handler" : "index.handler",
+        "MemorySize" : 128,
+        "Timeout" : 300,
+        "Role" : { "Ref": "ApiGatewayCfnLambdaRole" },
+        "Runtime" : "nodejs"
+      }
+    },
+    "RestApi": {
+      "Type": "Custom::ApiGatewayRestApi",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayRestApi", "Arn" ] },
+        "Name": { "Fn::Join":["-",["Api",{"Ref":"AWS::StackName"}]]},
+        "Description": "REST Api"
+      }
+    },
+
+    "RootResource": {
+      "DependsOn": [ "RestApi" ],
+      "Type": "Custom::ApiGatewayResource",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayResource", "Arn" ] },
+        "PathPart": "{subpath}",
+        "ParentId": { "Fn::GetAtt": [ "RestApi", "RootResourceId" ] },
+        "RestApiId": { "Ref": "RestApi" }
+      }
+    },
+    "RootGetMethod": {
+      "DependsOn": [
+        "RestApi",
+        "RootResource"
+      ],
+      "Type": "Custom::ApiGatewayMethod",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayMethod", "Arn" ] },
+        "ApiKeyRequired": false,
+        "AuthorizationType": "NONE",
+        "HttpMethod": "GET",
+        "ResourceId": { "Ref": "RootResource" },
+        "RestApiId": { "Ref": "RestApi" },
+        "RequestModels": { },
+        "RequestParameters": {
+          "method.request.path.subpath": true
+        }
+      }
+    },
+    "RootGetMethodResponse": {
+      "DependsOn": [
+        "RestApi",
+        "RootResource",
+        "RootGetMethod"
+      ],
+      "Type": "Custom::ApiGatewayMethodResponse",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayMethodResponse", "Arn" ] },
+        "StatusCode": "200",
+        "HttpMethod": "GET",
+        "ResourceId": { "Ref": "RootResource" },
+        "RestApiId": { "Ref": "RestApi" },
+        "ResponseModels": { },
+        "ResponseParameters": {
+          "method.response.header.Access-Control-Allow-Origin": true,
+          "method.response.header.Access-Control-Allow-Methods": true,
+          "method.response.header.Content-Type": true
+        }
+      }
+    },
+    "RootIntegration": {
+      "DependsOn": [
+        "RestApi",
+        "RootResource",
+        "RootGetMethod",
+        "RootGetMethodResponse"
+      ],
+      "Type": "Custom::ApiGatewayIntegration",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayIntegration", "Arn" ] },
+        "Type": "AWS",
+        "HttpMethod": "GET",
+        "ResourceId": { "Ref": "RootResource" },
+        "RestApiId": { "Ref": "RestApi" },
+        "IntegrationHttpMethod": "POST",
+        "Uri": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:aws:apigateway:",
+              { "Ref": "AWS::Region" },
+              ":lambda:path/2015-03-31/functions/",
+              "arn:aws:lambda:",{"Ref":"AWS::Region"},":",{"Ref":"AWS::AccountId"},":function:",
+              "${stageVariables.AppFunctionName}:${stageVariables.AppVersion}/invocations"
+            ]
+          ]
+        },
+        "Credentials": { "Ref": "ApiIntegrationCredentialsRole" },
+        "RequestTemplates": {
+          "application/json": {
+            "Fn::Join": [
+              "\n",
+              [
+                "{",
+                "  \"stage\": \"$context.stage\",",
+                "  \"request-id\": \"$context.requestId\",",
+                "  \"api-id\": \"$context.apiId\",",
+                "  \"resource-path\": \"$context.resourcePath\",",
+                "  \"resource-id\": \"$context.resourceId\",",
+                "  \"http-method\": \"$context.httpMethod\",",
+                "  \"source-ip\": \"$context.identity.sourceIp\",",
+                "  \"user-agent\": \"$context.identity.userAgent\",",
+                "  \"account-id\": \"$context.identity.accountId\",",
+                "  \"api-key\": \"$context.identity.apiKey\",",
+                "  \"caller\": \"$context.identity.caller\",",
+                "  \"user\": \"$context.identity.user\",",
+                "  \"user-arn\": \"$context.identity.userArn\",",
+                "  \"queryString\": \"$input.params().querystring\",",
+                "  \"headers\": \"$input.params().header\",",
+                "  \"pathParams\": \"$input.params().path\",",
+                "  \"allParams\": \"$input.params()\",",
+                "  \"ddbTableName\": \"$stageVariables.DDBTableName\"",
+                "}"
+              ]
+            ]
+          }
+        },
+        "RequestParameters": {
+          "integration.request.path.subpath": "method.request.path.subpath"
+        }
+      }
+    },
+    "RootIntegrationResponse": {
+      "DependsOn": [
+        "RestApi",
+        "RootResource",
+        "RootGetMethod",
+        "RootGetMethodResponse",
+        "RootIntegration"
+      ],
+      "Type": "Custom::ApiGatewayIntegrationResponse",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayIntegrationResponse", "Arn" ] },
+        "StatusCode": "200",
+        "HttpMethod": "GET",
+        "ResourceId": { "Ref": "RootResource" },
+        "RestApiId": { "Ref": "RestApi" },
+        "SelectionPattern": ".*",
+        "ResponseTemplates": {
+          "application/json": "$util.base64Decode( $input.path('$.payload') )"
+        },
+        "ResponseParameters": {
+          "method.response.header.Access-Control-Allow-Origin": "'*'",
+          "method.response.header.Access-Control-Allow-Methods": "'GET, OPTIONS'",
+          "method.response.header.Content-Type": "integration.response.body.contentType"
+        }
+      }
+    },
+    "ApiTestDeployment": {
+      "DependsOn": [
+        "RestApi",
+        "RootResource",
+        "RootGetMethod",
+        "RootGetMethodResponse",
+        "RootIntegration",
+        "RootIntegrationResponse"
+      ],
+      "Type": "Custom::ApiGatewayDeployment",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayDeployment", "Arn" ] },
+        "RestApiId": { "Ref": "RestApi" },
+        "StageName": "test",
+        "Variables": {
+          "DDBTableName": { "Ref": "TestDDBTableName" },
+          "AppFunctionName": { "Ref":"TestAppLambdaName" },
+          "AppVersion":"test"
+        }
+      }
+    },
+    "ApiProdDeployment": {
+      "DependsOn": [
+        "RestApi",
+        "RootResource",
+        "RootGetMethod",
+        "RootGetMethodResponse",
+        "RootIntegration",
+        "RootIntegrationResponse"
+      ],
+      "Type": "Custom::ApiGatewayDeployment",
+      "Properties": {
+        "ServiceToken" : { "Fn::GetAtt":[ "ApiGatewayDeployment", "Arn" ] },
+        "RestApiId": { "Ref": "RestApi" },
+        "StageName": "prod",
+        "Variables": {
+          "DDBTableName": { "Ref": "ProdDDBTableName" },
+          "AppFunctionName": { "Ref":"ProdAppLambdaName" },
+          "AppVersion":"prod"
+        }
+      }
+    }
+  },
+  "Outputs" : {
+    "StackName":{
+      "Value":{ "Ref":"AWS::StackName" }
+    },
+    "ApiName": {
+      "Value": { "Ref": "RestApi"}
+    },
+    "TestApiUrl": {
+      "Value": { "Fn::Join": [ "", [ "https://", { "Ref": "RestApi"}, ".execute-api.",{"Ref":"AWS::Region"},".amazonaws.com/test"] ] }
+    },
+    "ProdApiUrl": {
+      "Value": { "Fn::Join": [ "", [ "https://", { "Ref": "RestApi"}, ".execute-api.",{"Ref":"AWS::Region"},".amazonaws.com/prod"] ] }
+    }
+  }
+}
