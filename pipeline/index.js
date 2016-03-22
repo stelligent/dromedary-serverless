@@ -22,7 +22,7 @@ exports.registerTasks = function ( gulp, opts ) {
             var action, status = stack && stack.StackStatus;
             if (!status || status === 'DELETE_COMPLETE') {
                 action = 'createStack';
-            } else if (status.match(/(CREATE|UPDATE)_COMPLETE/)) {
+            } else if (status.match(/(CREATE|UPDATE|UPDATE_ROLLBACK)_COMPLETE/)) {
                 action = 'updateStack';
             } else {
                 return console.error('Stack "' + stackName + '" is currently in ' + status + ' status and can not be deployed.');
