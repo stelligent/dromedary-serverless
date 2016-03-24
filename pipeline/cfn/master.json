@@ -36,12 +36,12 @@
     "GitHubRepo":{
       "Type":"String",
       "Description":"GitHub Repo to pull from. Only the Name. not the URL",
-      "Default":"dromedary-serverless"
+      "Default":"dromedary"
     },
     "GitHubBranch":{
       "Type":"String",
       "Description":"Branch to use from Repo. Only the Name. not the URL",
-      "Default":"master"
+      "Default":"serverless"
     },
     "GulpPackageTask":{
       "Type":"String",
@@ -50,8 +50,8 @@
     },
     "GulpTestTask":{
       "Type":"String",
-      "Description":"Gulp task name for Unit Testing",
-      "Default":"test"
+      "Description":"Gulp task name for acceptance testing",
+      "Default":"test-functional"
     },
     "DistSitePath":{
       "Type":"String",
