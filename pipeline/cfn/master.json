@@ -7,6 +7,10 @@
       "Description":"S3 bucket name for all the CloudFormation templates used in the pipeline.",
       "Default": "serverless-pipeline"
     },
+    "HostedZoneId":{
+      "Type":"AWS::Route53::HostedZone::Id",
+      "Description":"The existing hosted zone id to create the test and prod hostnames in."
+    },
     "TestSiteFQDN":{
       "Type":"String",
       "Description":"Unique name to use for bucket and Route53 to serve static website content for test stage.",
@@ -18,10 +22,6 @@
       "Description":"Unique name to use for bucket and Route53 to serve static website content for production stage.",
       "AllowedPattern":"^[a-z0-9-]+(\\.[a-z0-9-]+){2,}$",
       "ConstraintDescription":"Must be valid hostname (like www.foo.com)"
-    },
-    "HostedZoneId":{
-      "Type":"AWS::Route53::HostedZone::Id",
-      "Description":"The existing hosted zone id to create the test and prod hostnames in."
     },
     "GitHubToken":{
       "NoEcho":"true",
@@ -74,7 +74,7 @@
       "ParameterGroups" : [
         {
           "Label" : { "default" : "App Configuration" },
-          "Parameters" : [ "TestSiteFQDN","ProdSiteFQDN","HostedZoneId" ]
+          "Parameters" : [ "HostedZoneId","TestSiteFQDN","ProdSiteFQDN" ]
         },
         {
           "Label" : { "default" : "GitHub Configuration" },
