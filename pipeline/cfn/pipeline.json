@@ -300,6 +300,29 @@
               {
                 "InputArtifacts":[
                   {
+                    "Name": "DistSwaggerOutput"
+                  }
+                ],
+                "Name":"DeployTestAPI",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineDeployLambda"
+                  },
+                  "UserParameters": { "Fn::Join": ["", ["type=apigateway&stage=test&name=", { "Ref":"ApiName"}]] }
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder":1
+              },
+              {
+                "InputArtifacts":[
+                  {
                     "Name": "DistSiteOutput"
                   }
                 ],
@@ -319,29 +342,6 @@
                 "OutputArtifacts": [
                 ],
                 "RunOrder": 2
-              },
-              {
-                "InputArtifacts":[
-                  {
-                    "Name": "DistSwaggerOutput"
-                  }
-                ],
-                "Name":"DeployTestAPI",
-                "ActionTypeId":{
-                  "Category":"Invoke",
-                  "Owner":"AWS",
-                  "Version":"1",
-                  "Provider":"Lambda"
-                },
-                "Configuration":{
-                  "FunctionName":{
-                    "Ref":"CodePipelineDeployLambda"
-                  },
-                  "UserParameters": { "Fn::Join": ["", ["type=apigateway&stage=test&name=", { "Ref":"ApiName"}]] }
-                },
-                "OutputArtifacts": [
-                ],
-                "RunOrder":2
               },
               {
                 "InputArtifacts":[
@@ -399,10 +399,10 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "DistSiteOutput"
+                    "Name": "DistSwaggerOutput"
                   }
                 ],
-                "Name":"DeployProdSite",
+                "Name":"DeployProdAPI",
                 "ActionTypeId":{
                   "Category":"Invoke",
                   "Owner":"AWS",
@@ -413,11 +413,11 @@
                   "FunctionName":{
                     "Ref":"CodePipelineDeployLambda"
                   },
-                  "UserParameters": { "Fn::Join": ["", ["type=s3&bucket=", { "Ref":"ProdBucketName"},"&apiBaseurl=",{"Fn::Join":["",[{"Ref":"ProdApiUrl"},"/"]]} ]]}
+                  "UserParameters": { "Fn::Join": ["", ["type=apigateway&stage=prod&name=", { "Ref":"ApiName"}]] }
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder": 2
+                "RunOrder":1
               },
               {
                 "InputArtifacts":[
@@ -441,6 +441,29 @@
                 "OutputArtifacts": [
                 ],
                 "RunOrder":2
+              },
+              {
+                "InputArtifacts":[
+                  {
+                    "Name": "DistSiteOutput"
+                  }
+                ],
+                "Name":"DeployProdSite",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineDeployLambda"
+                  },
+                  "UserParameters": { "Fn::Join": ["", ["type=s3&bucket=", { "Ref":"ProdBucketName"},"&apiBaseurl=",{"Fn::Join":["",[{"Ref":"ProdApiUrl"},"/"]]} ]]}
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 2
               },
               {
                 "InputArtifacts":[
