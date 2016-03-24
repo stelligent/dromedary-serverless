@@ -277,29 +277,6 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "DistSiteOutput"
-                  }
-                ],
-                "Name":"DeployTestSite",
-                "ActionTypeId":{
-                  "Category":"Invoke",
-                  "Owner":"AWS",
-                  "Version":"1",
-                  "Provider":"Lambda"
-                },
-                "Configuration":{
-                  "FunctionName":{
-                    "Ref":"CodePipelineDeployLambda"
-                  },
-                  "UserParameters": { "Fn::Join": ["", ["type=s3&bucket=", { "Ref":"TestBucketName"},"&apiBaseurl=",{"Fn::Join":["",[{"Ref":"TestApiUrl"},"/"]]} ]]}
-                },
-                "OutputArtifacts": [
-                ],
-                "RunOrder": 1
-              },
-              {
-                "InputArtifacts":[
-                  {
                     "Name": "DistLambdaOutput"
                   }
                 ],
@@ -323,6 +300,29 @@
               {
                 "InputArtifacts":[
                   {
+                    "Name": "DistSiteOutput"
+                  }
+                ],
+                "Name":"DeployTestSite",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineDeployLambda"
+                  },
+                  "UserParameters": { "Fn::Join": ["", ["type=s3&bucket=", { "Ref":"TestBucketName"},"&apiBaseurl=",{"Fn::Join":["",[{"Ref":"TestApiUrl"},"/"]]} ]]}
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 2
+              },
+              {
+                "InputArtifacts":[
+                  {
                     "Name": "DistSwaggerOutput"
                   }
                 ],
@@ -341,7 +341,7 @@
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder":1
+                "RunOrder":2
               },
               {
                 "InputArtifacts":[
@@ -366,36 +366,13 @@
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder":2
+                "RunOrder":3
               }
             ]
           },
           {
             "Name": "Production",
             "Actions": [
-              {
-                "InputArtifacts":[
-                  {
-                    "Name": "DistSiteOutput"
-                  }
-                ],
-                "Name":"DeployProdSite",
-                "ActionTypeId":{
-                  "Category":"Invoke",
-                  "Owner":"AWS",
-                  "Version":"1",
-                  "Provider":"Lambda"
-                },
-                "Configuration":{
-                  "FunctionName":{
-                    "Ref":"CodePipelineDeployLambda"
-                  },
-                  "UserParameters": { "Fn::Join": ["", ["type=s3&bucket=", { "Ref":"ProdBucketName"},"&apiBaseurl=",{"Fn::Join":["",[{"Ref":"ProdApiUrl"},"/"]]} ]]}
-                },
-                "OutputArtifacts": [
-                ],
-                "RunOrder": 1
-              },
               {
                 "InputArtifacts":[
                   {
@@ -422,6 +399,29 @@
               {
                 "InputArtifacts":[
                   {
+                    "Name": "DistSiteOutput"
+                  }
+                ],
+                "Name":"DeployProdSite",
+                "ActionTypeId":{
+                  "Category":"Invoke",
+                  "Owner":"AWS",
+                  "Version":"1",
+                  "Provider":"Lambda"
+                },
+                "Configuration":{
+                  "FunctionName":{
+                    "Ref":"CodePipelineDeployLambda"
+                  },
+                  "UserParameters": { "Fn::Join": ["", ["type=s3&bucket=", { "Ref":"ProdBucketName"},"&apiBaseurl=",{"Fn::Join":["",[{"Ref":"ProdApiUrl"},"/"]]} ]]}
+                },
+                "OutputArtifacts": [
+                ],
+                "RunOrder": 2
+              },
+              {
+                "InputArtifacts":[
+                  {
                     "Name": "DistSwaggerOutput"
                   }
                 ],
@@ -440,7 +440,7 @@
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder":1
+                "RunOrder":2
               },
               {
                 "InputArtifacts":[
@@ -465,7 +465,7 @@
                 },
                 "OutputArtifacts": [
                 ],
-                "RunOrder":2
+                "RunOrder":3
               }
             ]
           }
