@@ -422,29 +422,6 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name": "DistSwaggerOutput"
-                  }
-                ],
-                "Name":"DeployProdAPI",
-                "ActionTypeId":{
-                  "Category":"Invoke",
-                  "Owner":"AWS",
-                  "Version":"1",
-                  "Provider":"Lambda"
-                },
-                "Configuration":{
-                  "FunctionName":{
-                    "Ref":"CodePipelineDeployLambda"
-                  },
-                  "UserParameters": { "Fn::Join": ["", ["type=apigateway&stage=prod&name=", { "Ref":"ApiName"}]] }
-                },
-                "OutputArtifacts": [
-                ],
-                "RunOrder":2
-              },
-              {
-                "InputArtifacts":[
-                  {
                     "Name": "DistSiteOutput"
                   }
                 ],
