@@ -118,11 +118,21 @@ exports.registerTasks = function ( gulp, opts ) {
     });
 
     gulp.task(taskPrefix+':emptyTestSite', function() {
-        return util.emptyBucket(opts.testSiteFQDN);
+        return util.getSubStackOutput(stackName,'TestS3Stack','SiteBucket')
+            .then(function(bucketName) {
+                return util.emptyBucket(bucketName);
+            }).catch(function(){
+                return true;
+            });
     });
 
     gulp.task(taskPrefix+':emptyProdSite', function() {
-        return util.emptyBucket(opts.prodSiteFQDN);
+        return util.getSubStackOutput(stackName,'ProdS3Stack','SiteBucket')
+            .then(function(bucketName) {
+                return util.emptyBucket(bucketName);
+            }).catch(function(){
+                return true;
+            });
     });
 
     gulp.task(taskPrefix+':down', [taskPrefix+':emptyArtifacts',taskPrefix+':emptyTestSite',taskPrefix+':emptyProdSite'], function(cb) {

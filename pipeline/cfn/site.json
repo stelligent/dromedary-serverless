@@ -58,6 +58,10 @@
     "SiteUrl" : {
       "Value" : { "Fn::Join" : [ "", ["http://",{"Ref":"SiteBucketName"} ]] },
       "Description" : "Site URL"
+    },
+    "SiteBucket" : {
+      "Value" : {"Ref":"SiteBucket"},
+      "Description" : "Site Bucket"
     }
   }
 }
