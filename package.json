@@ -20,7 +20,7 @@
     "chalk": "^1.1.1"
   },
   "devDependencies": {
-    "cfn-api-gateway-deployment": "^0.4.0",
+    "cfn-api-gateway-deployment": "cplee/cfn-api-gateway-deployment",
     "cfn-api-gateway-integration": "^0.2.0",
     "cfn-api-gateway-integration-response": "^0.2.2",
     "cfn-api-gateway-method": "^0.3.0",

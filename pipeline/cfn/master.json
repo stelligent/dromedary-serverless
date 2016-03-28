@@ -281,6 +281,14 @@
     }
   },
   "Outputs":{
+    "TestSiteBucket" : {
+      "Value" : { "Fn::GetAtt" : [ "TestS3Stack", "Outputs.SiteBucket" ] } ,
+      "Description" : "Test Site Bucket - Empty before deleting stack"
+    },
+    "ProdSiteBucket" : {
+      "Value" : { "Fn::GetAtt" : [ "ProdS3Stack", "Outputs.SiteBucket" ] } ,
+      "Description" : "Prod Site Bucket - Empty before deleting stack"
+    },
     "TestSiteUrl" : {
       "Value" : { "Fn::GetAtt" : [ "TestS3Stack", "Outputs.SiteUrl" ] } ,
       "Description" : "Test Site Url"
@@ -288,6 +296,10 @@
     "ProdSiteUrl" : {
       "Value" : { "Fn::GetAtt" : [ "ProdS3Stack", "Outputs.SiteUrl" ] } ,
       "Description" : "Production Site Url"
+    },
+    "PipelineBucket" : {
+      "Value" : { "Fn::GetAtt" : [ "PipelineStack", "Outputs.ArtifactBucket" ] } ,
+      "Description" : "Pipeline Artifact Bucket - Empty before deleting stack"
     },
     "PipelineUrl": {
       "Value": {
