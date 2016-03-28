@@ -312,7 +312,8 @@
         "RootGetMethod",
         "RootGetMethodResponse",
         "RootIntegration",
-        "RootIntegrationResponse"
+        "RootIntegrationResponse",
+        "ApiTestDeployment"
       ],
       "Type": "Custom::ApiGatewayDeployment",
       "Properties": {
