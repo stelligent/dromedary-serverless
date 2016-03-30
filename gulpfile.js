@@ -26,7 +26,7 @@ var opts = {
     githubToken: gutil.env.token,
     githubUser: 'stelligent',
     githubRepo: 'dromedary',
-    githubBranch: 'serverless'
+    githubBranch: 'master'
 }
 var util = require('./pipeline/util.js')
 var gpipeline = require('./pipeline')
