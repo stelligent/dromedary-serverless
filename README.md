@@ -1,5 +1,5 @@
 # Overview
-This project deploys [dromedary](https://github.com/stelligent/dromedary) in AWS Lambda with API Gateway as the interface to demonstrate serverless architecture.  It also demonstrates the use of CodePipeline with Lambdas to continuously deliver changes made in the source code in a serverless manner.
+This project deploys [dromedary](https://github.com/stelligent/dromedary) in AWS Lambda with API Gateway as the interface to demonstrate serverless architecture. It also demonstrates the use of CodePipeline with Lambdas to continuously deliver changes made in the source code in a serverless manner. We've also written a three-part blog series on the topic here: [Serverless Delivery: Architecture (Part 1)](http://www.stelligent.com/agile/serverless-delivery-architecture-part-1/), [Serverless Delivery: Bootstrapping the Pipeline (Part 2)](http://www.stelligent.com/agile/serverless-delivery-bootstrapping-the-pipeline-part-2/) and [Serverless Delivery: Orchestrating the Pipeline (Part 3)](http://www.stelligent.com/agile/serverless-delivery-orchestrating-the-pipeline-part-3/).
 
 # Architecture Overview
 The application is split into 2 separate parts for deployment:
