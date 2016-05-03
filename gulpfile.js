@@ -15,8 +15,8 @@ var opts = {
     region: (gutil.env.region || 'us-west-2'),
     stackName: (gutil.env.stackName || 'dromedary-serverless'),
     cfnBucket: (gutil.env.templateBucket || 'serverless-pipeline'),
-    testSiteFQDN: 'sd-test.elasticoperations.com',
-    prodSiteFQDN: 'sd-prod.elasticoperations.com',
+    testSiteFQDN: 'drom-test.elasticoperations.com',
+    prodSiteFQDN: 'drom-prod.elasticoperations.com',
     hostedZoneId: 'Z3809G91N7QZJE', //TODO: get this programatically
     distSitePath: 'dist/site.zip',
     distLambdaPath: 'dist/lambda.zip',
