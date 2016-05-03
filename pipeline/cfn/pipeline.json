@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion":"2010-09-09",
-  "Description":"Master pipeline stack that calls nested stacks",
+  "Description":"CodePipeline definition",
   "Parameters":{
     "LambdaBucketName":{
       "Type":"String",

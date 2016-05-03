@@ -221,7 +221,6 @@
           "ProdDDBTableName":{ "Fn::GetAtt": ["ProdDynamoDBStack", "Outputs.TableName"]},
           "TestAppLambdaName":{ "Fn::GetAtt" : [ "TestAppStack", "Outputs.AppLambdaName" ] },
           "ProdAppLambdaName":{ "Fn::GetAtt" : [ "ProdAppStack", "Outputs.AppLambdaName" ] },
-          "ApiGatewayCfnLambdaRole":{ "Fn::GetAtt" : [ "IAMStack", "Outputs.ApiGatewayCfnLambdaRole" ] },
           "ApiIntegrationCredentialsRole":{ "Fn::GetAtt" : [ "IAMStack", "Outputs.ApiIntegrationCredentialsRole" ] }
         }
       }

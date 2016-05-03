@@ -102,49 +102,6 @@ gulp.task('cfn:templatesBucket', function(cb) {
 gulp.task('cfn:templates',['cfn:templatesBucket'], function() {
     return util.uploadToS3(__dirname+'/pipeline/cfn',opts.cfnBucket);
 });
-gulp.task('cfn:customResources', ['cfn:templatesBucket'], function(cb) {
-    var lambdaModules = [
-        'cfn-api-gateway-restapi',
-        'cfn-api-gateway-resource',
-        'cfn-api-gateway-method',
-        'cfn-api-gateway-method-response',
-        'cfn-api-gateway-integration',
-        'cfn-api-gateway-integration-response',
-        'cfn-api-gateway-deployment'
-
-    ];
-
-    var complete = 0;
-    lambdaModules.forEach(function (moduleName) {
-        gulp.src([__dirname+'/node_modules/'+moduleName+'/**/*','!'+__dirname+'node_modules/'+moduleName+'/package.json','!**/aws-sdk{,/**}'])
-            .pipe(zip(moduleName+'.zip'))
-            .pipe(gulp.dest(dist))
-            .pipe(gcallback(function(err) {
-                if (err) {
-                    cb(err);
-                } else {
-                    var params = {
-                        Bucket: opts.cfnBucket,
-                        Key: moduleName + '.zip',
-                        ACL: 'public-read',
-                        Body: fs.readFileSync(dist+"/"+moduleName +'.zip')
-                    }
-
-                    s3.putObject(params, function (err, data) {
-                        if (err) {
-                            cb(err);
-                        } else {
-                            if (++complete >= lambdaModules.length) {
-                                cb();
-                            }
-                        }
-                    });
-                }
-            }));
-    });
-});
-
-
 gulp.task('lambda:uploadS3', ['lambda:zip','cfn:templatesBucket'], function(cb) {
     var path = dist+'/pipeline-lambda.zip';
     var params = {
@@ -163,7 +120,7 @@ gulp.task('lambda:uploadS3', ['lambda:zip','cfn:templatesBucket'], function(cb) 
     });
 });
 
-gulp.task('publish',['cfn:templates','cfn:customResources','lambda:uploadS3'],  function() {
+gulp.task('publish',['cfn:templates','lambda:uploadS3'],  function() {
 });
 
 gulp.task('launch',['publish'],  function(callback) {
