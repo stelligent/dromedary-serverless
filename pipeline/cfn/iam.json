@@ -185,63 +185,6 @@
         ]
       }
     },
-    "ApiGatewayCfnLambdaRole":{
-      "Type":"AWS::IAM::Role",
-      "Properties":{
-        "AssumeRolePolicyDocument":{
-          "Statement":[
-            {
-              "Sid":"1",
-              "Effect":"Allow",
-              "Principal":{
-                "Service":[
-                  "lambda.amazonaws.com"
-                ]
-              },
-              "Action":"sts:AssumeRole"
-            }
-          ]
-        },
-        "Path":"/",
-        "Policies":[
-          {
-            "PolicyName": "LambdaPolicy",
-            "PolicyDocument": {
-              "Version": "2012-10-17",
-              "Statement": [
-                {
-                  "Effect": "Allow",
-                  "Action": [
-                    "logs:CreateLogGroup",
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
-                  ],
-                  "Resource": "arn:aws:logs:*:*:*"
-                },
-                {
-                  "Effect": "Allow",
-                  "Action": [
-                    "apigateway:*"
-                  ],
-                  "Resource": [
-                    "*"
-                  ]
-                },
-                {
-                  "Effect": "Allow",
-                  "Resource": [
-                    { "Fn::GetAtt": [ "ApiIntegrationCredentialsRole", "Arn" ] }
-                  ],
-                  "Action": [
-                    "iam:PassRole"
-                  ]
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
     "ApiIntegrationCredentialsRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -297,12 +240,6 @@
       "Description":"The ARN of the Pipeline custom action role, which is needed to configure Pipeline custom actions",
       "Value":{
         "Fn::GetAtt":[ "CodePipelineLambdaRole", "Arn" ]
-      }
-    },
-    "ApiGatewayCfnLambdaRole":{
-      "Description":"The ARN of the Lambda Trust Role, which is needed by the custom resources for api gateway",
-      "Value":{
-        "Fn::GetAtt":[ "ApiGatewayCfnLambdaRole", "Arn" ]
       }
     },
     "ApiIntegrationCredentialsRole":{
