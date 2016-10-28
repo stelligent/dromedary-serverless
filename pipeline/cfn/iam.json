@@ -35,6 +35,7 @@
                     "dynamodb:Scan",
                     "dynamodb:BatchGetItem",
                     "dynamodb:BatchWriteItem",
+                    "dynamodb:DescribeTable",
                     "dynamodb:UpdateItem"
                   ],
                   "Effect": "Allow",
