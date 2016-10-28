@@ -33,7 +33,7 @@
         "MemorySize" : { "Ref":"AppMemorySize"},
         "Timeout" : { "Ref":"AppTimeout"},
         "Role" : {"Ref":"AppRole"},
-        "Runtime" : "nodejs"
+        "Runtime" : "nodejs4.3"
       }
     }
   },
