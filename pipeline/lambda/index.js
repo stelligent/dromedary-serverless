@@ -535,7 +535,9 @@ function installNpm(destDirectory) {
 // return: promise
 function runNpm(packageDirectory, subcommand) {
     console.log("Running 'npm "+subcommand+"' in '"+packageDirectory+"'");
-    return exec('node '+packageDirectory+'/node_modules/npm/bin/npm-cli.js '+subcommand, {cwd: packageDirectory});
+    var env = {};
+    env['HOME']= '/tmp';
+    return exec('node '+packageDirectory+'/node_modules/npm/bin/npm-cli.js '+subcommand, {cwd: packageDirectory, env: env});
 }
 
 // run gulp
@@ -546,7 +548,8 @@ function runGulp(packageDirectory, task, env) {
     // clone the env, append npm to path
     for (var e in process.env) env[e] = process.env[e];
     env['PATH'] += (':'+packageDirectory+'/node_modules/.bin/');
-    console.log("PATH: "+env['PATH']);
+    env['PREFIX'] = packageDirectory+'/global-prefix';
+    env['HOME']= '/tmp';
     return exec('node '+packageDirectory+'/node_modules/gulp/bin/gulp.js --no-color '+task,{cwd: packageDirectory, env: env});
 }
 
