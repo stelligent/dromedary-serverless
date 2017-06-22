@@ -33,7 +33,7 @@ To integrate with GitHub, AWS CodePipeline uses OAuth tokens.  Generate your tok
 * `admin:repo_hook`, which is used to detect when you have committed and pushed changes to the repository
 * `repo`, which is used to read and pull artifacts from public and private repositories into a pipeline
 
-You can launch via the console: [![Launch Pipeline stack](https://s3.amazonaws.com/stelligent-training-public/public/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#cstack=sn~dromedary-serverless|turl~https://s3.amazonaws.com/stelligent-public/cloudformation-templates/github/labs/serverless-pipeline/master.json)
+You can launch via the console: [![Launch Pipeline stack](https://s3.amazonaws.com/stelligent-training-public/public/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#cstack=sn~dromedary-serverless|turl~https://s3-us-west-2.amazonaws.com/dromedary-serverless/master.json)
 
 Or you can launch by using `gulp` in this repo:
 
