@@ -5,7 +5,7 @@
     "TemplateBucketName":{
       "Type":"String",
       "Description":"S3 bucket name for all the CloudFormation templates used in the pipeline.",
-      "Default": "serverless-pipeline"
+      "Default": "dromedary-serverless"
     },
     "HostedZoneId":{
       "Type":"AWS::Route53::HostedZone::Id",
